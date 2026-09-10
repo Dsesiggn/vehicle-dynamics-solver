@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Load Transfer Modeler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: #38bdf8; }
+        .input-box { background: #1e293b; border: 1px solid #334155; color: #38bdf8; padding: 4px 8px; border-radius: 4px; width: 80px; text-align: right; font-weight: bold; }
+        .grip-lost { animation: pulse-red 0.6s infinite; border-color: #f87171 !important; box-shadow: 0 0 20px #dc2626; }
+        @keyframes pulse-red { 0%, 100% { background-color: #dc2626; } 50% { background-color: #7f1d1d; } }
+    </style>
+</head>
+<body class="flex h-screen w-screen">
+
+    <div class="w-[20%] h-full flex flex-col border-r border-slate-700 bg-slate-900 shadow-2xl z-10 overflow-y-auto">
+        <div class="p-5 border-b border-slate-700">
+            <h1 class="text-xl font-bold text-blue-400">Dynamics Modeler</h1>
+            <p class="text-xs text-gray-400 mt-1">Milliken & Milliken Load Transfer Analysis</p>
+        </div>
+        
+        <div class="p-4 border-b border-slate-700 bg-slate-800">
+            <h3 class="text-xs font-bold text-blue-400 mb-3 uppercase">G-Force Telemetry</h3>
+            <label class="text-sm text-gray-300 font-bold">Vehicle Speed <span id="val-speed" class="float-right text-emerald-400">45 mph</span></label>
+            <input type="range" id="slider-speed" min="0" max="80" value="45" step="1" class="mb-4">
+            <label class="text-sm text-gray-300 font-bold">Lateral G <span id="val-lat" class="float-right text-purple-400">0.00 G</span></label>
+            <input type="range" id="slider-lat" min="-2.5" max="2.5" value="1.5" step="0.05" class="mb-4">
+            <label class="text-sm text-gray-300 font-bold">Longitudinal G <span id="val-long" class="float-right text-orange-400">0.00 G</span></label>
+            <input type="range" id="slider-long" min="-2.0" max="1.5" value="0.0" step="0.05">
+        </div>
+
+        <div class="p-4 flex-1">
+            <h3 class="text-xs font-bold text-blue-400 mb-3 uppercase">Vehicle Parameters</h3>
+            <div class="space-y-3 text-sm text-gray-300" id="inputs-container">
+                <div class="flex justify-between items-center"><label>Total Mass (kg)</label><input type="number" id="in-mass" class="input-box" value="277.6"></div>
+                <div class="flex justify-between items-center"><label>CG Height (mm)</label><input type="number" id="in-cg" class="input-box" value="280.0"></div>
+                <div class="flex justify-between items-center"><label>Front Weight Bias (%)</label><input type="number" id="in-wd" class="input-box" value="47.0"></div>
+                
+                <div class="flex justify-between items-center border-t border-slate-700 pt-2"><label>Static Ride Height (mm)</label><input type="number" id="in-rh" class="input-box" value="35.0"></div>
+                <div class="flex justify-between items-center"><label>Front Spring (lb/in)</label><input type="number" id="in-srf" class="input-box" value="200.0" step="5"></div>
+                <div class="flex justify-between items-center"><label>Rear Spring (lb/in)</label><input type="number" id="in-srr" class="input-box" value="225.0" step="5"></div>
+                <div class="flex justify-between items-center"><label>Front Motion Ratio</label><input type="number" id="in-mrf" class="input-box bg-slate-800 text-emerald-400 border-slate-600 outline-none" readonly></div>
+                <div class="flex justify-between items-center"><label>Rear Motion Ratio</label><input type="number" id="in-mrr" class="input-box bg-slate-800 text-emerald-400 border-slate-600 outline-none" readonly></div>
+                
+                <div class="flex justify-between items-center border-t border-slate-700 pt-2"><label>Front ARB Only (Nm/deg)</label><input type="number" id="in-arbf" class="input-box" value="100.0" step="5"></div>
+                <div class="flex justify-between items-center"><label>Rear ARB Only (Nm/deg)</label><input type="number" id="in-arbr" class="input-box" value="10.0" step="5"></div>
+                
+                <div class="flex justify-between items-center border-t border-slate-700 pt-2">
+                    <label class="font-bold text-blue-300">Aero Model</label>
+                    <select id="in-aeromode" class="input-box w-36 bg-slate-800 text-[10px]" onchange="updatePhysics()">
+                        <option value="static">Simplified Static</option>
+                        <option value="dynamic" selected>Dynamic Aero Map</option>
+                    </select>
+                </div>
+                <div class="flex justify-between items-center"><label>Aero Cl*A (m²)</label><input type="number" id="in-cla" class="input-box text-emerald-400 transition-opacity" value="2.5" step="0.1"></div>
+                <div class="flex justify-between items-center"><label>Aero Balance (% F)</label><input type="number" id="in-aerobal" class="input-box text-emerald-400 transition-opacity" value="40.0"></div>
+                
+                <div class="flex justify-between items-center border-t border-slate-700 pt-2"><label>Brake Bias (% F)</label><input type="number" id="in-brakebias" class="input-box" value="65.0"></div>
+                <div class="flex justify-between items-center"><label>Wheelbase (mm)</label><input type="number" id="in-wb" class="input-box" value="1530.0"></div>
+                <div class="flex justify-between items-center"><label>Front Track (mm)</label><input type="number" id="in-tf" class="input-box" value="1233.6"></div>
+                <div class="flex justify-between items-center"><label>Rear Track (mm)</label><input type="number" id="in-tr" class="input-box" value="1216.1"></div>
+                <div class="flex justify-between items-center"><label>Unsprung Mass/Corner</label><input type="number" id="in-mu" class="input-box" value="15.0"></div>
+                <div class="flex justify-between items-center border-t border-slate-700 pt-2"><label>Tire µ Max (0 Load)</label><input type="number" id="in-mu-max" class="input-box" value="2.8" step="0.1"></div>
+                <div class="flex justify-between items-center"><label>Tire µ Min (High Load)</label><input type="number" id="in-mu-min" class="input-box" value="1.5" step="0.1"></div>
+                <div class="flex justify-between items-center"><label>Peak SA (Light/Inside)</label><input type="number" id="in-sa-light" class="input-box text-yellow-300" value="4.1" step="0.1"></div>
+                <div class="flex justify-between items-center"><label>Peak SA (Heavy/Outside)</label><input type="number" id="in-sa-heavy" class="input-box text-yellow-300" value="6.9" step="0.1"></div>
+            </div>
+            <button onclick="resetSliders()" class="mt-6 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition border border-slate-500">Reset G-Forces</button>
+            
+            <div class="mt-6 pt-4 border-t border-slate-700">
+                <h3 class="text-xs font-bold text-emerald-400 mb-2 uppercase">Dynamic Handling Balance</h3>
+                <div class="flex justify-between text-sm mb-1"><span class="text-gray-300">Total Downforce:</span> <span id="val-tot-df" class="font-bold text-cyan-400">0 N</span></div>
+                <div class="flex justify-between text-sm mb-2"><span class="text-gray-300">Aero CoP (Front %):</span> <span id="val-cop" class="font-bold text-cyan-400">0.0 %</span></div>
+                <div class="flex justify-between text-sm mb-1 border-t border-slate-700 pt-2"><span class="text-gray-300">Total Lat Transfer:</span> <span id="val-tot-lat" class="font-bold text-white">0 N</span></div>
+                <div class="flex justify-between text-sm mb-3"><span class="text-gray-300">Mech LLTD (Front %):</span> <span id="val-lltd" class="font-bold text-emerald-400">0.0 %</span></div>
+                
+                <h4 class="text-[10px] text-gray-400 uppercase tracking-wider mb-1 text-center">Tire Saturation Bias</h4>
+                <div class="w-full h-2.5 bg-gray-800 rounded-full overflow-hidden flex shadow-inner">
+                    <div id="bar-lltd-f" class="h-full bg-emerald-500 transition-all duration-300 relative" style="width: 50%"><div class="absolute right-0 top-0 bottom-0 w-px bg-white/50"></div></div>
+                    <div id="bar-lltd-r" class="h-full bg-slate-600 transition-all duration-300" style="width: 50%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-gray-400 mt-1 font-bold">
+                    <span>FRONT SATURATED</span><span id="txt-balance-state" class="text-emerald-400">NEUTRAL</span><span>REAR SATURATED</span>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-700 mb-6">
+                <h3 class="text-xs font-bold text-blue-400 mb-2 uppercase">Chassis Attitude & Roll</h3>
+                <div class="flex justify-between text-sm mb-1"><span class="text-gray-300">Front Roll Dist (RSD):</span> <span id="val-calc-rsd" class="font-bold text-white">0.0 %</span></div>
+                <div class="flex justify-between text-sm mb-1"><span class="text-gray-300">Total Roll Rate:</span> <span id="val-tot-roll" class="font-bold text-white">0 Nm/deg</span></div>
+                <div class="flex justify-between text-sm mb-1"><span class="text-gray-300">Roll Angle:</span> <span id="val-roll" class="font-bold text-orange-400">0.00 °</span></div>
+                <div class="flex justify-between text-sm mb-1"><span class="text-gray-300">Pitch Angle:</span> <span id="val-pitch" class="font-bold text-purple-400">0.00 °</span></div>
+                <div class="flex justify-between text-sm mb-1"><span class="text-gray-300">Front Heave:</span> <span id="val-heave-f" class="font-bold text-cyan-400">0.0 mm</span></div>
+                <div class="flex justify-between text-sm mb-1"><span class="text-gray-300">Rear Heave:</span> <span id="val-heave-r" class="font-bold text-cyan-400">0.0 mm</span></div>
+            </div>
+        </div>
+        <div id="status-bar" class="p-2 bg-emerald-900/50 text-emerald-400 text-xs text-center border-t border-slate-700 mt-auto">Fetching CR26 Hardpoints...</div>
+    </div>
+
+    <div class="w-[30%] h-full flex flex-col border-r border-slate-700 bg-slate-900 shadow-2xl z-10">
+        <div class="p-4 border-b border-slate-700 bg-slate-800">
+            <h3 class="text-xs font-bold text-blue-400 mb-3 uppercase">Suspension Hardpoints</h3>
+            <div class="flex gap-2 text-xs font-bold">
+                <button id="btn-hp-front" onclick="renderHardpoints('front')" class="flex-1 py-2 bg-blue-600 text-white rounded transition shadow">Front Axle</button>
+                <button id="btn-hp-rear" onclick="renderHardpoints('rear')" class="flex-1 py-2 bg-slate-700 text-gray-400 rounded transition shadow">Rear Axle</button>
+                <button id="btn-hp-full" onclick="renderHardpoints('full')" class="flex-1 py-2 bg-slate-700 text-gray-400 rounded transition shadow">Full Car</button>
+            </div>
+        </div>
+        <div id="chart-3d" class="w-full h-[45%] border-b border-slate-700 bg-[#050505]"></div>
+        <div class="flex-1 overflow-y-auto p-0 bg-[#0a0f1c]">
+            <table class="w-full text-left border-collapse">
+                <thead class="sticky top-0 bg-slate-800 shadow-md">
+                    <tr class="text-gray-400 text-[10px] uppercase border-b border-slate-600">
+                        <th class="py-2 px-3">Node</th><th class="py-2 px-2 text-right">X (mm)</th><th class="py-2 px-2 text-right">Y (mm)</th><th class="py-2 px-3 text-right">Z (mm)</th>
+                    </tr>
+                </thead>
+                <tbody id="hp-table-body" class="text-xs font-mono text-gray-300"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="w-[50%] h-full p-4 flex flex-col gap-4 bg-[#050505] overflow-y-auto">
+        
+        <div class="flex h-[35%] min-h-[280px] shrink-0 gap-4">
+            <div class="w-5/12 bg-slate-900 rounded-xl border border-slate-800 p-4 flex flex-col relative shadow-xl">
+                <h2 class="text-sm font-bold text-center text-gray-400 mb-2">Tire Dynamics</h2>
+                <div class="flex-1 flex items-center justify-center relative w-full mt-2">
+                    <div class="absolute inset-y-8 inset-x-12 bg-slate-800/80 rounded-2xl shadow-inner flex items-center justify-center">
+                        <span class="text-slate-600 font-bold tracking-widest rotate-90 text-2xl opacity-30">CR26</span>
+                    </div>
+                    <div id="heatmap-grid" class="absolute inset-0 flex flex-col justify-between py-2 px-2"></div>
+                </div>
+            </div>
+            <div class="w-7/12 bg-slate-900 rounded-xl border border-slate-800 p-2 shadow-xl">
+                <div id="chart-transfer" class="w-full h-full"></div>
+            </div>
+        </div>
+
+        <div class="flex h-[30%] min-h-[250px] shrink-0 gap-4">
+            <div class="w-1/2 bg-slate-900 rounded-xl border border-slate-800 p-2 shadow-xl">
+                <div id="chart-rollaxis" class="w-full h-full"></div>
+            </div>
+            
+            <div class="w-1/2 bg-slate-900 rounded-xl border border-slate-800 p-2 flex flex-col shadow-xl">
+                 <div class="flex justify-between items-center px-4 pt-2">
+                    <h2 class="text-xs font-bold text-gray-300">Friction Envelope</h2>
+                    <select id="tire-select" class="bg-slate-800 border border-slate-700 rounded text-xs text-white px-2 py-1 outline-none w-28" onchange="updatePhysics()">
+                        <option value="FL">FL Tire</option><option value="FR">FR Tire</option>
+                        <option value="RL">RL Tire</option><option value="RR">RR Tire</option>
+                        <option value="ALL" selected>All Tires</option>
+                    </select>
+                </div>
+                <div id="chart-grip" class="w-full flex-1"></div>
+            </div>
+        </div>
+
+        <div class="h-[35%] min-h-[250px] shrink-0 bg-slate-900 rounded-xl border border-slate-800 p-2 shadow-xl">
+            <div id="chart-gsweep" class="w-full h-full"></div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. DATA INGESTION & KINEMATICS
+        // ==========================================
+        let rawFL, rawRL, rawFR, rawRR;
+        const mirrorDef = def => Object.fromEntries(Object.entries(def).map(([k, v]) => [k, [-v[0], v[1], v[2]]]));
+
+        function distToLine(P, A, B) {
+            let PA = [P[0]-A[0], P[1]-A[1], P[2]-A[2]];
+            let BA = [B[0]-A[0], B[1]-A[1], B[2]-A[2]];
+            let cross = [PA[1]*BA[2] - PA[2]*BA[1], PA[2]*BA[0] - PA[0]*BA[2], PA[0]*BA[1] - PA[1]*BA[0]];
+            return Math.hypot(...cross) / Math.hypot(...BA);
+        }
+
+        function calculateExactMR(pts, isFront) {
+            let A = isFront ? pts.uca_front : pts.lca_front;
+            let B = isFront ? pts.uca_rear : pts.lca_rear;
+            let out_pt = isFront ? pts.uca_outer : pts.lca_outer;
+            
+            let arm_ratio = distToLine(pts.pushrod_outer, A, B) / distToLine(out_pt, A, B);
+            let dz_pro = 1.0 * arm_ratio; 
+            
+            let dx = pts.pushrod_outer[0] - pts.rocker_pivot[0];
+            let dz = (pts.pushrod_outer[2] + dz_pro) - pts.rocker_pivot[2];
+            let d = Math.hypot(dx, dz);
+            
+            let L_pr = Math.hypot(pts.pushrod_outer[0] - pts.pushrod_inner[0], pts.pushrod_outer[2] - pts.pushrod_inner[2]);
+            let L_pri = Math.hypot(pts.pushrod_inner[0] - pts.rocker_pivot[0], pts.pushrod_inner[2] - pts.rocker_pivot[2]);
+            let L_rsp = Math.hypot(pts.rocker_spring_pt[0] - pts.rocker_pivot[0], pts.rocker_spring_pt[2] - pts.rocker_pivot[2]);
+            
+            if (d > L_pri + L_pr || d === 0) return isFront ? 0.84 : 0.83; 
+            
+            let a = (L_pri*L_pri - L_pr*L_pr + d*d) / (2*d);
+            let h = Math.sqrt(Math.max(0, L_pri*L_pri - a*a));
+            
+            let P2 = [pts.rocker_pivot[0] + a * dx / d, pts.rocker_pivot[2] + a * dz / d];
+            let i1 = [P2[0] + h * dz / d, P2[1] - h * dx / d];
+            let i2 = [P2[0] - h * dz / d, P2[1] + h * dx / d];
+            
+            let p_new = Math.hypot(i1[0] - pts.pushrod_inner[0], i1[1] - pts.pushrod_inner[2]) < Math.hypot(i2[0] - pts.pushrod_inner[0], i2[1] - pts.pushrod_inner[2]) ? i1 : i2;
+            let d_theta = Math.atan2(p_new[1] - pts.rocker_pivot[2], p_new[0] - pts.rocker_pivot[0]) - Math.atan2(pts.pushrod_inner[2] - pts.rocker_pivot[2], pts.pushrod_inner[0] - pts.rocker_pivot[0]);
+            
+            let new_rsp_angle = Math.atan2(pts.rocker_spring_pt[2] - pts.rocker_pivot[2], pts.rocker_spring_pt[0] - pts.rocker_pivot[0]) + d_theta;
+            let rsp_new = [pts.rocker_pivot[0] + L_rsp * Math.cos(new_rsp_angle), pts.rocker_pivot[2] + L_rsp * Math.sin(new_rsp_angle)];
+            
+            let orig_len = Math.hypot(pts.rocker_spring_pt[0] - pts.spring_chassis_pt[0], pts.rocker_spring_pt[2] - pts.spring_chassis_pt[2]);
+            let new_len = Math.hypot(rsp_new[0] - pts.spring_chassis_pt[0], rsp_new[1] - pts.spring_chassis_pt[2]);
+            
+            return Math.abs(orig_len - new_len);
+        }
+
+        async function initData() {
+            try {
+                let res = await fetch('cr26_hardpoints.json');
+                if(!res.ok) throw new Error();
+                let data = await res.json();
+                rawFL = data.FL; rawRL = data.RL;
+                document.getElementById('status-bar').innerText = "✓ Linked to cr26_hardpoints.json";
+            } catch(e) {
+                // Fallback geometry
+                rawFL = {"uca_front": [263.5, -127, 263.5], "uca_rear": [232.4, 127, 248.7], "uca_outer": [482.6, 9.1, 285.9], "lca_front": [215.9, -117.4, 120.6], "lca_rear": [215.9, 123.4, 127], "lca_outer": [533.4, -3.1, 119.1], "tie_rod_inner": [219, -69.8, 151.9], "tie_rod_outer": [542.9, -73, 171.4], "wheel_center": [616.8, 0, 203.2], "pushrod_outer": [438.1, -3.1, 319.5], "pushrod_inner": [257.4, -3.1, 646.8], "rocker_pivot": [212.9, -3.1, 622.3], "rocker_spring_pt": [207.4, -3.1, 679.1], "spring_chassis_pt": [15.8, -3.1, 660.9], "arb_drop_top": [238.3, -3.1, 621.4], "arb_arm_end": [238.3, -3.1, 557.7], "arb_pivot": [238.3, -87.5, 557.7]};
+                rawRL = {"uca_front": [279.4, 1447.8, 269.7], "uca_rear": [247.7, 1658.9, 271.4], "uca_outer": [488.9, 1549.4, 280.7], "lca_front": [281.5, 1449.5, 143.5], "lca_rear": [228.6, 1658.9, 127], "lca_outer": [533.4, 1536.7, 119.1], "tie_rod_inner": [281.5, 1449.5, 143.5], "tie_rod_outer": [533.4, 1460.8, 126.3], "wheel_center": [608, 1530, 203.2], "pushrod_outer": [482.6, 1546.2, 144.4], "pushrod_inner": [281.1, 1546.2, 387.6], "rocker_pivot": [237, 1546.2, 351.1], "rocker_spring_pt": [225.8, 1546.2, 426.5], "spring_chassis_pt": [35.4, 1546.2, 398.1], "arb_drop_top": [275.1, 1546.2, 351.1], "arb_arm_end": [275.1, 1546.2, 231.7], "arb_pivot": [275.1, 1651, 231.7]};
+                document.getElementById('status-bar').innerText = "⚠ Using Base Geometry (JSON not found)";
+                document.getElementById('status-bar').className = "p-2 bg-orange-900/50 text-orange-400 text-xs text-center border-t border-slate-700";
+            }
+            rawFR = mirrorDef(rawFL); rawRR = mirrorDef(rawRL);
+            document.getElementById('in-mrf').value = calculateExactMR(rawFL, true).toFixed(3);
+            document.getElementById('in-mrr').value = calculateExactMR(rawRL, false).toFixed(3);
+            
+            buildHeatmapHTML();
+            renderHardpoints('front');
+            updatePhysics();
+        }
+
+        // ==========================================
+        // 2. RENDERING & DATA-DRIVEN TRACES
+        // ==========================================
+        function getCornerTraces(data, suffix) {
+            let traces = [{ x: Object.values(data).map(v=>v[0]), y: Object.values(data).map(v=>v[1]), z: Object.values(data).map(v=>v[2]), text: Object.keys(data).map(k=>k+' '+suffix), mode: 'markers', type: 'scatter3d', marker: {size: 4, color: '#f8fafc'}, hoverinfo: 'text'}];
+            
+            const parts = [
+                {pts: ['uca_front', 'uca_outer', 'uca_rear', 'uca_front'], col: '#38bdf8', name: 'UCA', w: 5},
+                {pts: ['lca_front', 'lca_outer', 'lca_rear', 'lca_front'], col: '#ef4444', name: 'LCA', w: 5},
+                {pts: ['tie_rod_inner', 'tie_rod_outer'], col: '#22c55e', name: 'Tie Rod', w: 5},
+                {pts: ['pushrod_outer', 'pushrod_inner'], col: '#d946ef', name: 'Pushrod', w: 4},
+                {pts: ['pushrod_inner', 'rocker_pivot', 'rocker_spring_pt', 'pushrod_inner'], col: '#a855f7', name: 'Rocker', w: 4},
+                {pts: ['rocker_spring_pt', 'spring_chassis_pt'], col: '#f59e0b', name: 'Coilover', w: 6},
+                {pts: ['uca_outer', 'wheel_center', 'lca_outer'], col: '#94a3b8', name: 'Upright', w: 3},
+                {pts: ['arb_drop_top', 'arb_arm_end'], col: '#06b6d4', name: 'ARB Drop', w: 3},
+                {pts: ['arb_arm_end', 'arb_pivot'], col: '#06b6d4', name: 'ARB Arm', w: 5}
+            ];
+
+            parts.forEach(p => {
+                if(p.pts.every(k => data[k])) {
+                    traces.push({ x: p.pts.map(k=>data[k][0]), y: p.pts.map(k=>data[k][1]), z: p.pts.map(k=>data[k][2]), mode: 'lines', type: 'scatter3d', line: {color: p.col, width: p.w}, name: p.name+' '+suffix});
+                }
+            });
+
+            if (data.wheel_center) {
+                let th = Array.from({length:21}, (_,i)=>i*Math.PI/10), w=190.5, r=203.2;
+                let isR = data.wheel_center[0] < 0, xin = data.wheel_center[0] + (isR?w/2:-w/2), xout = data.wheel_center[0] + (isR?-w/2:w/2);
+                let yo = th.map(t=>data.wheel_center[1]+r*Math.cos(t)), zo = th.map(t=>data.wheel_center[2]+r*Math.sin(t));
+                let xc = th.flatMap((_,i) => i%4===0 ? [xin, xout, null] : []), yc = th.flatMap((_,i) => i%4===0 ? [yo[i], yo[i], null] : []), zc = th.flatMap((_,i) => i%4===0 ? [zo[i], zo[i], null] : []);
+                traces.push({x: Array(21).fill(xout), y: yo, z: zo, mode: 'lines', type: 'scatter3d', line: {color: '#475569', width: 4}, hoverinfo:'skip'}, {x: Array(21).fill(xin), y: yo, z: zo, mode: 'lines', type: 'scatter3d', line: {color: '#334155', width: 2}, hoverinfo:'skip'}, {x: xc, y: yc, z: zc, mode: 'lines', type: 'scatter3d', line: {color: '#334155', width: 2}, hoverinfo:'skip'});
+            }
+            return traces;
+        }
+
+        function renderHardpoints(view) {
+            let tbody = document.getElementById('hp-table-body'); tbody.innerHTML = '';
+            let traces = [], datasets = view === 'full' ? [['FL',rawFL], ['FR',rawFR], ['RL',rawRL], ['RR',rawRR]] : [[view.toUpperCase(), view === 'front' ? rawFL : rawRL]];
+            
+            datasets.forEach(([pfx, data]) => {
+                for(let [k,v] of Object.entries(data)) {
+                    tbody.innerHTML += `<tr class="border-b border-slate-700/50"><td class="py-1 px-3 text-[10px] text-gray-400">[${pfx}] ${k.toUpperCase()}</td><td class="text-right text-cyan-400">${v[0].toFixed(1)}</td><td class="text-right text-emerald-400">${v[1].toFixed(1)}</td><td class="text-right text-purple-400 px-2">${v[2].toFixed(1)}</td></tr>`;
+                }
+                traces.push(...getCornerTraces(data, `(${pfx})`));
+            });
+
+            ['front', 'rear', 'full'].forEach(v => document.getElementById('btn-hp-'+v).className = view === v ? 'flex-1 py-2 bg-blue-600 text-white rounded transition shadow' : 'flex-1 py-2 bg-slate-700 text-gray-400 rounded transition shadow');
+            Plotly.react('chart-3d', traces, {paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', margin: {t:0, l:0, r:0, b:0}, showlegend: false, scene: {aspectmode: 'data', xaxis:{visible:false}, yaxis:{visible:false}, zaxis:{visible:false}, camera: {eye: view==='full'?{x:-1.8, y:-1.8, z:1.2}:{x:-1.5, y:-1.5, z:1.0}}}}, {displayModeBar: false});
+        }
+
+        function buildHeatmapHTML() {
+            let html = '';
+            [['FL','FR'], ['RL','RR']].forEach(r => {
+                html += '<div class="flex justify-between">';
+                r.forEach(id => html += `<div id="tire-${id}" class="w-20 h-36 rounded-lg border-2 border-slate-900 shadow-2xl flex flex-col items-center justify-center transition-colors z-10"><span class="text-[10px] text-white/70 font-bold">${id}</span><span id="load-${id}" class="text-xs font-bold text-white mt-1"></span><div class="w-12 h-1.5 bg-gray-800 mt-1 rounded"><div id="bar-${id}" class="h-full bg-green-400 transition-all"></div></div><span id="util-${id}" class="text-[10px] font-bold text-white/90 mt-1"></span><span id="rh-${id}" class="text-[10px] font-bold text-blue-300 mt-1"></span><span id="sa-${id}" class="text-[10px] font-bold text-yellow-300 mt-0.5"></span><span id="sr-${id}" class="text-[10px] font-bold text-orange-400 mt-0.5"></span></div>`);
+                html += '</div>';
+            });
+            document.getElementById('heatmap-grid').innerHTML = html;
+        }
+
+        // ==========================================
+        // 3. PHYSICS SOLVERS (STATE ENCAPSULATION)
+        // ==========================================
+        // ==========================================
+        // 3. PHYSICS SOLVERS (STATE ENCAPSULATION)
+        // ==========================================
+        let simHistory = { time: [], gFL: [], gFR: [], gRL: [], gRR: [], rFL: [], rFR: [], rRL: [], rRR: [] };
+        let currentTime = 0.0;
+
+        function getVal(id) { return parseFloat(document.getElementById(id).value); }
+        function getRC(pts, t) {
+            let den = (pts.uca_front[0]-pts.uca_outer[0])*(pts.lca_front[2]-pts.lca_outer[2]) - (pts.uca_front[2]-pts.uca_outer[2])*(pts.lca_front[0]-pts.lca_outer[0]);
+            if(Math.abs(den) < 1e-5) return 0; // Failsafe
+            let px = ((pts.uca_front[0]*pts.uca_outer[2] - pts.uca_front[2]*pts.uca_outer[0])*(pts.lca_front[0] - pts.lca_outer[0]) - (pts.uca_front[0] - pts.uca_outer[0])*(pts.lca_front[0]*pts.lca_outer[2] - pts.lca_front[2]*pts.lca_outer[0])) / den;
+            let pz = ((pts.uca_front[0]*pts.uca_outer[2] - pts.uca_front[2]*pts.uca_outer[0])*(pts.lca_front[2] - pts.lca_outer[2]) - (pts.uca_front[2] - pts.uca_outer[2])*(pts.lca_front[0]*pts.lca_outer[2] - pts.lca_front[2]*pts.lca_outer[0])) / den;
+            return (pz * (t/2)) / ((t/2) - px);
+        }
+
+        // --- NEW: EXPONENTIAL LOAD SENSITIVITY ---
+        function getTireMu(Fz, mu_max, mu_min) {
+            let decay_rate = 0.0015; // Tuned so tire flattens out around ~1200 N
+            return mu_min + (mu_max - mu_min) * Math.exp(-decay_rate * Fz);
+        }
+
+        // --- NEW: DYNAMIC PACEJKA SOLVER ---
+        function pacejka(req, Fz, isLong, s) {
+            if(Fz <= 0 || req <= 0) return 0;
+            
+            let mu = getTireMu(Fz, s.mu_max, s.mu_min);
+            let D = (isLong ? mu * 1.1 : mu) * Fz; // Longitudinal peak slightly higher
+            if(req >= D) return isLong ? 25.0 : 15.0; // Saturated
+            
+            // Dynamic SA Shift: Interpolate peak SA based on vertical load (300N to 1000N window)
+            let interp = Math.min(1, Math.max(0, (Fz - 300) / 700));
+            let target_peak = s.sa_light + interp * (s.sa_heavy - s.sa_light);
+            
+            let C = isLong ? 1.65 : 1.3, E = isLong ? 0.0 : -0.2;
+            
+            // Re-calculate Stiffness (B) to force the curve to peak at your target SA
+            let B = isLong ? (1.16 / 12.0) : (1.82 / target_peak); 
+            
+            let l = 0, h = isLong ? 25 : 15, m;
+            for(let i=0; i<20; i++) {
+                m = (l+h)/2; let Bm = B*m;
+                if(D * Math.sin(C * Math.atan(Bm - E*(Bm - Math.atan(Bm)))) < req) l = m; else h = m;
+            }
+            return m;
+        }
+
+        function updatePhysics() {
+            let s = { // Single State Object
+                mass: getVal('in-mass'), cg: getVal('in-cg'), wb: getVal('in-wb'), tf: getVal('in-tf'), tr: getVal('in-tr'), wd: getVal('in-wd')/100,
+                rh: getVal('in-rh'), mu: getVal('in-mu')*9.81, aero_m: document.getElementById('in-aeromode').value,
+                cla: getVal('in-cla'), a_bal: getVal('in-aerobal')/100, b_bal: getVal('in-brakebias')/100,
+                mu_max: getVal('in-mu-max'), mu_min: getVal('in-mu-min'), sa_light: getVal('in-sa-light'), sa_heavy: getVal('in-sa-heavy'),
+                spd: getVal('slider-speed')*0.447, lat: getVal('slider-lat'), lng: getVal('slider-long'),
+                W: 0, dW_lng: 0, rsd: 0, ktot: 0, rcf: getRC(rawFL, getVal('in-tf')), rcr: getRC(rawRL, getVal('in-tr')),
+                Fz: {}, reqX: {}, reqY: {}, req: {}, grip: {}, sa: {}, sr: {}, util: {}, h: {}
+            };
+            
+            s.W = s.mass * 9.81;
+            let wrf = (getVal('in-srf')*0.175)*(getVal('in-mrf')**2), wrr = (getVal('in-srr')*0.175)*(getVal('in-mrr')**2);
+            let kf = 0.5*(wrf*1000)*(s.tf/1000)**2*(Math.PI/180) + getVal('in-arbf'), kr = 0.5*(wrr*1000)*(s.tr/1000)**2*(Math.PI/180) + getVal('in-arbr');
+            s.ktot = kf + kr; s.rsd = kf / s.ktot;
+            
+            document.getElementById('val-speed').innerText = getVal('slider-speed') + " mph";
+            document.getElementById('val-lat').innerText = s.lat.toFixed(2) + " G";
+            document.getElementById('val-long').innerText = s.lng.toFixed(2) + " G";
+
+            s.dW_lng = s.W * s.lng * (s.cg / s.wb);
+            let Fp_f = -s.dW_lng * (s.lng < 0 ? 0.626 : 1), Fp_r = s.dW_lng * (s.lng > 0 ? 0.804 : 0.677);
+            
+            if(s.aero_m === 'dynamic') {
+                let df = 0.5 * 1.225 * 2.5 * s.spd**2;
+                let c_f = (Fp_f + df*0.4)/(2*wrf), c_r = (Fp_r + df*0.6)/(2*wrr);
+                s.cla = Math.max(1.5, Math.min(3.8, 2.5 + (c_f+c_r)*0.015));
+                s.a_bal = Math.max(0.25, Math.min(0.55, 0.4 + (c_f-c_r)*0.0035));
+                document.getElementById('in-cla').value = s.cla.toFixed(2); document.getElementById('in-aerobal').value = (s.a_bal*100).toFixed(1);
+            }
+            document.getElementById('in-cla').disabled = s.aero_m === 'dynamic'; document.getElementById('in-aerobal').disabled = s.aero_m === 'dynamic';
+            
+            s.df_tot = 0.5 * 1.225 * s.cla * s.spd**2;
+            s.hf = (Fp_f + s.df_tot*s.a_bal)/(2*wrf); s.hr = (Fp_r + s.df_tot*(1-s.a_bal))/(2*wrr);
+            s.pitch = Math.atan2(s.hr - s.hf, s.wb) * (180/Math.PI);
+
+            let Wsf = s.W*s.wd - 2*s.mu, Wsr = s.W*(1-s.wd) - 2*s.mu, Ws = Wsf + Wsr;
+            let harm = s.cg - (s.rcf + (s.rcr - s.rcf)*(1-s.wd));
+            s.roll = (Ws * s.lat * harm / 1000) / s.ktot;
+            
+            let dWf = (Ws*s.lat*harm*s.rsd/s.tf) + (Wsf*s.lat*s.rcf/s.tf) + (2*s.mu*s.lat*203.2/s.tf);
+            let dWr = (Ws*s.lat*harm*(1-s.rsd)/s.tr) + (Wsr*s.lat*s.rcr/s.tr) + (2*s.mu*s.lat*203.2/s.tr);
+            s.totLat = Math.abs(dWf) + Math.abs(dWr);
+            s.trueLLTD = s.totLat > 0 ? (Math.abs(dWf)/s.totLat)*100 : s.rsd*100;
+            s.transfers = {uf: 2*s.mu*s.lat*203.2/s.tf, ur: 2*s.mu*s.lat*203.2/s.tr, gf: Wsf*s.lat*s.rcf/s.tf, gr: Wsr*s.lat*s.rcr/s.tr, ef: Ws*s.lat*harm*s.rsd/s.tf, er: Ws*s.lat*harm*(1-s.rsd)/s.tr};
+
+            let corners = [{id:'FL', a:1, f:1}, {id:'FR', a:-1, f:1}, {id:'RL', a:1, f:0}, {id:'RR', a:-1, f:0}];
+            let reqY = s.mass*Math.abs(s.lat)*9.81, reqX = s.mass*Math.abs(s.lng)*9.81;
+            
+            // Loop 1: Calculate Vertical Dynamics first to prevent NaN in longitudinal math
+            corners.forEach(c => {
+                let Fz_dyn = (s.W*(c.f?s.wd:1-s.wd)/2) + (c.f ? -s.dW_lng/2 : s.dW_lng/2);
+                let dW = c.a * (c.f ? dWf : dWr);
+                s.Fz[c.id] = Math.max(0, Fz_dyn + dW + s.df_tot*(c.f ? s.a_bal : 1-s.a_bal)/2);
+                s.h[c.id] = s.rh - (c.f?s.hf:s.hr) - (c.a * ((c.f?s.tf:s.tr)/2)*Math.sin(s.roll*Math.PI/180));
+            });
+
+            // Loop 2: Calculate Slip Angles and Saturation Envelopes
+            corners.forEach(c => {
+                let ax = c.f ? (s.lng<0 ? reqX*s.b_bal : 0) : (s.lng<0 ? reqX*(1-s.b_bal) : reqX);
+                let axleFz = s.Fz[c.f?'FL':'RL'] + s.Fz[c.f?'FR':'RR'] || 1;
+                
+                s.reqX[c.id] = ax * (s.Fz[c.id] / axleFz);
+                s.reqY[c.id] = (reqY*(c.f?s.wd:1-s.wd)) * (s.Fz[c.id] / axleFz);
+                s.req[c.id] = Math.hypot(s.reqX[c.id], s.reqY[c.id]);
+                
+                // USE NEW EXPONENTIAL DECAY FOR PEAK GRIP
+                s.grip[c.id] = getTireMu(s.Fz[c.id], s.mu_max, s.mu_min) * s.Fz[c.id]; 
+                
+                s.sa[c.id] = pacejka(s.reqY[c.id], s.Fz[c.id], false, s);
+                s.sr[c.id] = pacejka(s.reqX[c.id], s.Fz[c.id], true, s);
+                s.util[c.id] = s.grip[c.id]>0 ? (s.req[c.id]/s.grip[c.id])*100 : (s.req[c.id]>0?100:0);
+            });
+
+            // Logging
+            simHistory.time.push(currentTime); currentTime+=0.1;
+            corners.forEach(c => { simHistory['g'+c.id].push(s.grip[c.id]); simHistory['r'+c.id].push(s.req[c.id]); });
+            if(simHistory.time.length > 100) for(let k in simHistory) simHistory[k].shift();
+
+            // Sweep
+            s.swp = {G:[], uF:[], uR:[]};
+            for(let g=0; g<=3.0; g+=0.05) {
+                let t_dWf = (Ws*g*harm*s.rsd/s.tf) + (Wsf*g*s.rcf/s.tf) + (2*s.mu*g*203.2/s.tf);
+                let t_dWr = (Ws*g*harm*(1-s.rsd)/s.tr) + (Wsr*g*s.rcr/s.tr) + (2*s.mu*g*203.2/s.tr);
+                let uF=0, uR=0;
+                
+                let fzl_f = Math.max(0, (s.W*s.wd/2) + s.df_tot*s.a_bal/2 + t_dWf);
+                let fzr_f = Math.max(0, (s.W*s.wd/2) + s.df_tot*s.a_bal/2 - t_dWf);
+                let fzl_r = Math.max(0, (s.W*(1-s.wd)/2) + s.df_tot*(1-s.a_bal)/2 + t_dWr);
+                let fzr_r = Math.max(0, (s.W*(1-s.wd)/2) + s.df_tot*(1-s.a_bal)/2 - t_dWr);
+                
+                let axleF = fzl_f + fzr_f || 1, axleR = fzl_r + fzr_r || 1;
+
+                corners.forEach(c => {
+                    let Fz = c.id==='FL'?fzl_f : c.id==='FR'?fzr_f : c.id==='RL'?fzl_r : fzr_r;
+                    let ry = (s.mass*g*9.81*(c.f?s.wd:1-s.wd)) * (Fz / (c.f?axleF:axleR));
+                    // USE EXPONENTIAL DECAY FOR THE ENVELOPE GENERATOR
+                    let pk = getTireMu(Fz, s.mu_max, s.mu_min) * Fz;
+                    let u = pk>0 ? (Math.hypot(s.reqX[c.id], ry) / pk)*100 : 100;
+                    if(c.f) uF = Math.max(uF, u); else uR = Math.max(uR, u);
+                });
+                s.swp.G.push(g); s.swp.uF.push(uF); s.swp.uR.push(uR);
+            }
+            updateUI(s);
+        }
+
+        // ==========================================
+        // 4. UI UPDATES
+        // ==========================================
+        function updateUI(s) {
+            document.getElementById('val-tot-df').innerText = Math.round(s.df_tot) + " N";
+            document.getElementById('val-cop').innerText = (s.a_bal*100).toFixed(1) + " %";
+            document.getElementById('val-tot-lat').innerText = Math.round(s.totLat) + " N";
+            document.getElementById('val-lltd').innerText = s.trueLLTD.toFixed(1) + " %";
+            
+            document.getElementById('val-calc-rsd').innerText = (s.rsd*100).toFixed(1) + " %";
+            document.getElementById('val-tot-roll').innerText = Math.round(s.ktot) + " Nm/deg";
+            document.getElementById('val-roll').innerText = s.roll.toFixed(2) + " °";
+            document.getElementById('val-pitch').innerText = s.pitch.toFixed(2) + " °";
+            document.getElementById('val-heave-f').innerText = s.hf.toFixed(1) + " mm";
+            document.getElementById('val-heave-r').innerText = s.hr.toFixed(1) + " mm";
+
+            let f_bias = Math.max(s.util.FL, s.util.FR) / (Math.max(s.util.FL, s.util.FR) + Math.max(s.util.RL, s.util.RR)) * 100 || 50;
+            document.getElementById('bar-lltd-f').style.width = Math.max(0, Math.min(100, (f_bias-48)*25)) + "%";
+            document.getElementById('bar-lltd-r').style.width = (100 - Math.max(0, Math.min(100, (f_bias-48)*25))) + "%";
+            let bTxt = document.getElementById('txt-balance-state');
+            bTxt.innerText = f_bias>50.05 ? `UNDERSTEER (${f_bias.toFixed(1)}% F)` : (f_bias<49.95 ? `OVERSTEER (${(100-f_bias).toFixed(1)}% R)` : "NEUTRAL");
+            bTxt.className = f_bias>50.05 ? "text-emerald-400" : (f_bias<49.95 ? "text-red-400" : "text-gray-400");
+            document.getElementById('bar-lltd-f').style.backgroundColor = f_bias>50.05 ? '#10b981' : '#475569';
+            document.getElementById('bar-lltd-r').style.backgroundColor = f_bias<49.95 ? '#ef4444' : '#475569';
+
+            ['FL','FR','RL','RR'].forEach(id => {
+                let el = document.getElementById(`tire-${id}`), u = s.util[id];
+                if(u >= 100) el.classList.add('grip-lost'); else { el.classList.remove('grip-lost'); el.style.backgroundColor = u>85?'#f59e0b':(u>60?'#eab308':(u>20?'#22c55e':'#475569')); }
+                document.getElementById(`load-${id}`).innerText = Math.round(s.Fz[id]) + " N";
+                document.getElementById(`util-${id}`).innerText = u>=100 ? "SLIDING" : Math.round(u)+"%";
+                document.getElementById(`rh-${id}`).innerText = Math.max(0, s.h[id]).toFixed(1) + " mm RH";
+                document.getElementById(`sa-${id}`).innerText = s.sa[id]>=14.9 ? "SA: --" : "SA: "+s.sa[id].toFixed(1)+"°";
+                document.getElementById(`sr-${id}`).innerText = s.sr[id]>=24.9 ? "SR: LIMIT" : "SR: "+s.sr[id].toFixed(1)+"%";
+                document.getElementById(`bar-${id}`).style.width = Math.min(100, u)+"%";
+                document.getElementById(`bar-${id}`).style.backgroundColor = u>=100 ? '#fff' : (u>85?'#ef4444':'#10b981');
+            });
+
+            Plotly.react('chart-transfer', [{x:['Front Axle','Rear Axle'], y:[s.transfers.uf, s.transfers.ur], name:'Unsprung', type:'bar', marker:{color:'#94a3b8'}}, {x:['Front Axle','Rear Axle'], y:[s.transfers.gf, s.transfers.gr], name:'Geometric', type:'bar', marker:{color:'#f97316'}}, {x:['Front Axle','Rear Axle'], y:[s.transfers.ef, s.transfers.er], name:'Elastic', type:'bar', marker:{color:'#3b82f6'}}], {
+                title:{text:`Load Transfer Anatomy`, font:{color:'#f8fafc', size:12}}, barmode:'relative', paper_bgcolor:'transparent', plot_bgcolor:'transparent', font:{color:'#cbd5e1'}, margin:{t:30, l:50, r:10, b:40}, 
+                xaxis:{title:'Axle', gridcolor:'#334155'}, yaxis:{title:'Force (N)', gridcolor:'#334155'}, legend:{orientation:'h', y:-0.15}
+            }, {displayModeBar:false});
+
+            Plotly.react('chart-rollaxis', [{x:[0, s.wb], y:[s.rcf, s.rcr], mode:'lines+markers', name:'Axis', line:{color:'#f97316', dash:'dash', width:3}, marker:{size:8}}, {x:[s.wb*(1-s.wd)], y:[s.cg], mode:'markers+text', text:[`CG (${s.cg})`], textposition:'top center', marker:{size:14, color:'#38bdf8'}}, {x:[-200, s.wb+200], y:[0,0], mode:'lines', name:'Ground', line:{color:'#64748b'}}], {
+                title:{text:'Roll Axis', font:{color:'#f8fafc', size:12}}, paper_bgcolor:'transparent', plot_bgcolor:'transparent', font:{color:'#cbd5e1'}, margin:{t:30, l:50, r:20, b:40}, 
+                xaxis:{title:'Wheelbase (mm)', gridcolor:'#334155'}, yaxis:{title:'Height (mm)', gridcolor:'#334155'}, showlegend:false
+            }, {displayModeBar:false});
+
+            let st = document.getElementById('tire-select').value, gD = [], maxF = 0, isSlid = false;
+            if(st === 'ALL') {
+                [{id:'FL',c:'#3b82f6'}, {id:'FR',c:'#0ea5e9'}, {id:'RL',c:'#ef4444'}, {id:'RR',c:'#f97316'}].forEach(t => {
+                    let p = simHistory['g'+t.id], r = simHistory['r'+t.id];
+                    maxF = Math.max(maxF, ...p, ...r); if(r[r.length-1] >= p[p.length-1]) isSlid = true;
+                    gD.push({x:simHistory.time, y:p, mode:'lines', name:t.id+' Grip', line:{color:t.c, dash:'dot'}}, {x:simHistory.time, y:r, mode:'lines', name:t.id+' Req', line:{color:t.c}});
+                });
+            } else {
+                let p = simHistory['g'+st], r = simHistory['r'+st];
+                maxF = Math.max(...p, ...r); isSlid = r[r.length-1] >= p[p.length-1];
+                gD.push({x:simHistory.time, y:p, mode:'lines', name:'Available Grip', line:{color:'#94a3b8', dash:'dash'}}, {x:simHistory.time, y:r, mode:'lines', name:'Required Grip', line:{color:isSlid?'#ef4444':'#10b981', width:3}, fill:'tonexty', fillcolor:isSlid?'rgba(239,68,68,0.2)':'rgba(16,185,129,0.2)'});
+            }
+            
+            // Restored the showlegend flag and formatting
+            Plotly.react('chart-grip', gD, {
+                title:{text:`Dynamic Tire Friction Envelope`, font:{color:'#f8fafc', size:12}},
+                paper_bgcolor:'transparent', plot_bgcolor:'transparent', font:{color:'#cbd5e1'}, margin:{t:30, l:50, r:10, b:40}, 
+                xaxis:{title:'Simulation Time (s)', gridcolor:'#334155'}, yaxis:{title:'Force (N)', gridcolor:'#334155', range:[0, maxF*1.2]}, 
+                showlegend:true, legend:{orientation:'h', y:-0.3}
+            }, {displayModeBar:false});
+
+            Plotly.react('chart-gsweep', [{x:s.swp.G, y:s.swp.uF, mode:'lines', name:'Front Axle', line:{color:'#10b981', width:3}}, {x:s.swp.G, y:s.swp.uR, mode:'lines', name:'Rear Axle', line:{color:'#ef4444', width:3}}, {x:[0,3], y:[100,100], mode:'lines', name:'Grip Limit', line:{color:'#fff', dash:'dot'}, hoverinfo:'skip'}, {x:[Math.abs(s.lat)], y:[Math.max(s.util.FL, s.util.FR, s.util.RL, s.util.RR)], mode:'markers', name:'Current State', marker:{size:14, color:'#38bdf8', symbol:'star'}}], {
+                title:{text:`Handling G-Sweep`, font:{color:'#f8fafc', size:12}}, paper_bgcolor:'transparent', plot_bgcolor:'transparent', font:{color:'#cbd5e1'}, margin:{t:30, l:50, r:10, b:40}, 
+                xaxis:{title:'Lateral Acceleration (G)', gridcolor:'#334155', range:[0, 2.5]}, yaxis:{title:'Tire Saturation (%)', gridcolor:'#334155', range:[0, 120]}, 
+                showlegend:true, legend:{orientation:'h', y:-0.3}
+            }, {displayModeBar:false});
+        }
+
+        document.querySelectorAll('input').forEach(el => el.addEventListener('input', updatePhysics));
+        function resetSliders() { document.getElementById('slider-lat').value=0; document.getElementById('slider-long').value=0; document.getElementById('slider-speed').value=45; updatePhysics(); }
+        window.addEventListener('resize', () => { ['chart-3d','chart-transfer','chart-rollaxis','chart-grip','chart-gsweep'].forEach(id => { if(document.getElementById(id)) Plotly.Plots.resize(id); }); });
+        initData();
+    </script>
+</body>
+</html>
