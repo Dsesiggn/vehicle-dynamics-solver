@@ -6,6 +6,7 @@
     <title>Dynamic Load Transfer Modeler</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="ttc_b2356run8_calibration.js"></script>
     <style>
         body { background-color: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
         ::-webkit-scrollbar { width: 6px; }
@@ -15,6 +16,24 @@
         .input-box { background: #1e293b; border: 1px solid #334155; color: #38bdf8; padding: 4px 8px; border-radius: 4px; width: 80px; text-align: right; font-weight: bold; }
         .grip-lost { animation: pulse-red 0.6s infinite; border-color: #f87171 !important; box-shadow: 0 0 20px #dc2626; }
         @keyframes pulse-red { 0%, 100% { background-color: #dc2626; } 50% { background-color: #7f1d1d; } }
+        #tire-panel { border-top: 1px solid #334155; padding: 16px; }
+        #tire-panel label { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 8px 0; font-size: 12px; }
+        #tire-panel input, #tire-panel select { min-width: 0; }
+        #tire-panel input:invalid { border-color: #f87171; }
+        .coefficient-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .coefficient-grid fieldset { min-width: 0; border-top: 1px solid #475569; }
+        .coefficient-grid .input-box { width: 75px; }
+        #tire-error { color: #fca5a5; font-size: 12px; }
+        #tire-preview { height: 320px; min-width: 0; }
+        #tire-summary { font-size: 12px; color: #a7f3d0; padding: 8px 16px; overflow-wrap: anywhere; }
+        body > div { min-width: 0; }
+        body > div:nth-child(3) > .flex { min-height: 420px; }
+        #chart-grip { min-height: 310px; }
+        #heatmap-grid { gap: 12px; }
+        #heatmap-grid [id^="tire-"]:not(.grip-lost) span { color: #0f172a; }
+        @media (min-width: 1201px) { body > div:first-child { width: 330px; flex-shrink: 0; } body > div:nth-child(2) { width: 28%; } body > div:nth-child(3) { flex: 1; } }
+        @media (max-width: 1200px) { body { display: block !important; height: auto !important; } body > div { width: 100% !important; height: auto !important; overflow: visible !important; } #chart-3d { height: 320px; } }
+        @media (max-width: 600px) { body > div:nth-child(3) > .flex { height: auto; flex-direction: column; } body > div:nth-child(3) > .flex > div { width: 100%; min-height: 330px; } }
     </style>
 </head>
 <body class="flex h-screen w-screen">
@@ -35,6 +54,24 @@
             <input type="range" id="slider-long" min="-2.0" max="1.5" value="0.0" step="0.05">
         </div>
 
+        <section id="tire-panel" aria-labelledby="tire-heading">
+            <h2 id="tire-heading" class="text-sm font-bold text-emerald-400">Pacejka Coefficients</h2>
+            <label for="mf-mode">Coefficient source <select id="mf-mode" class="input-box" style="width:180px"><option value="ttc" selected>TTC run8 / lateral</option><option value="estimate">Load-sensitive estimate</option><option value="direct">Manual B / C / D / E</option></select></label>
+            <div id="mf-provenance" class="text-xs text-amber-300">TTC lateral fit; longitudinal estimated</div>
+            <label for="mf-scale">Force scale <input id="mf-scale" class="input-box" type="number" min="0.01" max="2" step="any" value="1" required title="1 for coefficients already adjusted to track; 0.6666667 for raw Calspan coefficients. Apply only once."></label>
+            <label for="mf-decay">Load decay (1/N) <input id="mf-decay" class="input-box" type="number" min="0" max="1" step="any" value="0.0015" required></label>
+            <label for="mf-long-ratio">Estimated longitudinal / lateral D <input id="mf-long-ratio" class="input-box" type="number" min="0.01" max="5" step="any" value="1.1" required></label>
+            <label for="mf-fz-low">Light reference Fz (N) <input id="mf-fz-low" class="input-box" type="number" min="1" max="20000" step="any" value="300" required></label>
+            <label for="mf-fz-high">Heavy reference Fz (N) <input id="mf-fz-high" class="input-box" type="number" min="1" max="20000" step="any" value="1000" required></label>
+            <label for="mf-ia">Fit reference IA (deg) <input id="mf-ia" class="input-box" type="number" min="-15" max="15" step="any" value="0" required title="Metadata only; no camber-force model is implemented."></label>
+            <label for="mf-pressure">Fit reference pressure (psi) <input id="mf-pressure" class="input-box" type="number" min="1" max="100" step="any" value="12" required title="Metadata only; use coefficients fitted at this pressure."></label>
+            <div id="mf-coefficients" class="coefficient-grid"></div>
+            <label for="mf-preview-fz">Preview Fz (N) <input id="mf-preview-fz" class="input-box" type="number" min="1" max="20000" step="any" value="667" required></label>
+            <label for="mf-axis">Preview axis <select id="mf-axis" class="input-box" style="width:150px"><option value="y">Lateral</option><option value="x">Longitudinal</option></select></label>
+            <label for="mf-slip-limit">Lateral fit limit (deg) <input id="mf-slip-limit" class="input-box" type="number" min="0.1" max="45" step="any" value="12" required></label>
+            <label for="mf-ratio-limit">Longitudinal fit limit (%) <input id="mf-ratio-limit" class="input-box" type="number" min="0.1" max="100" step="any" value="25" required></label>
+            <div id="tire-error" role="alert"></div>
+        </section>
         <div class="p-4 flex-1">
             <h3 class="text-xs font-bold text-blue-400 mb-3 uppercase">Vehicle Parameters</h3>
             <div class="space-y-3 text-sm text-gray-300" id="inputs-container">
@@ -126,6 +163,11 @@
     </div>
 
     <div class="w-[50%] h-full p-4 flex flex-col gap-4 bg-[#050505] overflow-y-auto">
+        <section class="shrink-0 border-b border-slate-700" aria-label="Tire force curve">
+            <div id="tire-preview"></div>
+            <div id="tire-summary" role="status"></div>
+            <div id="tire-model-status" class="text-xs text-amber-300 px-4 pb-3" role="status"></div>
+        </section>
         
         <div class="flex h-[35%] min-h-[280px] shrink-0 gap-4">
             <div class="w-5/12 bg-slate-900 rounded-xl border border-slate-800 p-4 flex flex-col relative shadow-xl">
@@ -316,39 +358,175 @@
             return (pz * (t/2)) / ((t/2) - px);
         }
 
-        // --- NEW: EXPONENTIAL LOAD SENSITIVITY ---
-        function getTireMu(Fz, mu_max, mu_min) {
-            let decay_rate = 0.0015; // Tuned so tire flattens out around ~1200 N
-            return mu_min + (mu_max - mu_min) * Math.exp(-decay_rate * Fz);
+        // BEGIN PURE TIRE MODEL: degrees for alpha, fraction for kappa, N for force.
+        function magicForce(slip, p) {
+            const z = p.B * slip;
+            return p.D * Math.sin(p.C * Math.atan(z - p.E * (z - Math.atan(z))));
         }
 
-        // --- NEW: DYNAMIC PACEJKA SOLVER ---
-        function pacejka(req, Fz, isLong, s) {
-            if(Fz <= 0 || req <= 0) return 0;
-            
-            let mu = getTireMu(Fz, s.mu_max, s.mu_min);
-            let D = (isLong ? mu * 1.1 : mu) * Fz; // Longitudinal peak slightly higher
-            if(req >= D) return isLong ? 25.0 : 15.0; // Saturated
-            
-            // Dynamic SA Shift: Interpolate peak SA based on vertical load (300N to 1000N window)
-            let interp = Math.min(1, Math.max(0, (Fz - 300) / 700));
-            let target_peak = s.sa_light + interp * (s.sa_heavy - s.sa_light);
-            
-            let C = isLong ? 1.65 : 1.3, E = isLong ? 0.0 : -0.2;
-            
-            // Re-calculate Stiffness (B) to force the curve to peak at your target SA
-            let B = isLong ? (1.16 / 12.0) : (1.82 / target_peak); 
-            
-            let l = 0, h = isLong ? 25 : 15, m;
-            for(let i=0; i<20; i++) {
-                m = (l+h)/2; let Bm = B*m;
-                if(D * Math.sin(C * Math.atan(Bm - E*(Bm - Math.atan(Bm)))) < req) l = m; else h = m;
+        function peakArgument(C, E) {
+            // For 1 < C <= 2 and E < 1 the inner function is strictly increasing.
+            const target = Math.tan(Math.PI / (2 * C));
+            let lo = 0, hi = 1;
+            const inner = z => z - E * (z - Math.atan(z));
+            while (inner(hi) < target) hi *= 2;
+            for (let i = 0; i < 60; i++) {
+                const mid = (lo + hi) / 2;
+                if (inner(mid) < target) lo = mid; else hi = mid;
             }
+            return (lo + hi) / 2;
+        }
+
+        function tireParameters(Fz, axis, s) {
+            const m = s.tire, t = Math.max(0, Math.min(1, (Fz - m.low) / (m.high - m.low)));
+            const lerp = (a, b) => a + t * (b - a);
+            let B, C, E, mu;
+            if (m.mode === 'ttc' && axis === 'y') {
+                const rows = m.calibration;
+                let index = rows.findIndex(row => row.Fz >= Fz);
+                if (index < 0) index = rows.length - 1;
+                const a = rows[Math.max(0, index - 1)], b = rows[index];
+                const w = a.Fz === b.Fz ? 0 : Math.max(0, Math.min(1, (Fz - a.Fz) / (b.Fz - a.Fz)));
+                const atLoad = key => a[key] + w * (b[key] - a[key]);
+                B = atLoad('B'); C = atLoad('C'); E = atLoad('E'); mu = atLoad('mu');
+            } else if (m.mode === 'direct') {
+                const a = m[axis][0], b = m[axis][1];
+                B = lerp(a.B, b.B); C = lerp(a.C, b.C); E = lerp(a.E, b.E); mu = lerp(a.mu, b.mu);
+            } else {
+                mu = s.mu_min + (s.mu_max - s.mu_min) * Math.exp(-m.decay * Math.max(0, Fz));
+                C = axis === 'x' ? 1.65 : 1.3; E = axis === 'x' ? 0 : -0.2;
+                B = axis === 'x' ? 100 * 1.16 / 12 : peakArgument(C, E) / lerp(s.sa_light, s.sa_heavy);
+                if (axis === 'x') mu *= m.longRatio;
+            }
+            return {B, C, D: mu * Math.max(0, Fz) * m.scale, E};
+        }
+
+        function tirePeak(p, limit) {
+            const trueSlip = peakArgument(p.C, p.E) / p.B;
+            const slip = Math.min(trueSlip, limit);
+            return {slip, force: magicForce(slip, p), edge: trueSlip >= limit};
+        }
+
+        function tireKnee(p, limit) {
+            const peak = tirePeak(p, limit);
+            if (peak.force <= 0 || peak.slip <= 1) return null;
+            let best = {score: -Infinity};
+            for (let i = 1; i <= 1000; i++) {
+                const slip = peak.slip * i / 1000;
+                if (slip < 1) continue;
+                const force = magicForce(slip, p), score = force / peak.force - slip / peak.slip;
+                if (score > best.score) best = {slip, force, score};
+            }
+            return best;
+        }
+
+        function inverseTire(force, p, limit) {
+            if (force === 0) return 0;
+            const peak = tirePeak(p, limit), demand = Math.abs(force);
+            if (p.D <= 0 || demand > peak.force * (1 + 1e-10)) return NaN;
+            let lo = 0, hi = peak.slip;
+            for (let i = 0; i < 50; i++) {
+                const mid = (lo + hi) / 2;
+                if (magicForce(mid, p) < demand) lo = mid; else hi = mid;
+            }
+            return Math.sign(force) * (lo + hi) / 2;
+        }
+
+        function tireCapacity(Fz, s) {
+            return {x: tirePeak(tireParameters(Fz, 'x', s), s.tire.xLimit).force,
+                    y: tirePeak(tireParameters(Fz, 'y', s), s.tire.yLimit).force};
+        }
+
+        function tireUtilization(fx, fy, capacity) {
+            const ratio = (force, cap) => cap > 0 ? Math.abs(force) / cap : (force === 0 ? 0 : Infinity);
+            return Math.hypot(ratio(fx, capacity.x), ratio(fy, capacity.y));
+        }
+        // END PURE TIRE MODEL
+
+        function buildCoefficientPanel() {
+            const calibration = typeof TTC_CALIBRATION !== 'undefined' ? TTC_CALIBRATION : null;
+            if (calibration) {
+                document.getElementById('mf-scale').value = calibration.forceScale;
+                document.getElementById('mf-fz-low').value = calibration.rows[1].Fz;
+                document.getElementById('mf-fz-high').value = calibration.rows[4].Fz;
+                document.getElementById('mf-preview-fz').value = calibration.rows[2].Fz;
+            } else {
+                document.getElementById('mf-mode').value = 'estimate';
+                document.querySelector('#mf-mode option[value="ttc"]').disabled = true;
+            }
+            let html = '';
+            for (const axis of ['y', 'x']) for (const [index, Fz] of [300, 1000].entries()) {
+                const referenceFz = calibration ? calibration.rows[index ? 4 : 1].Fz : Fz;
+                const mu = (1.5 + 1.3 * Math.exp(-0.0015 * referenceFz)) * (axis === 'x' ? 1.1 : 1);
+                const defaults = {B: axis === 'x' ? 100 * 1.16 / 12 : 1.82 / (index ? 6.9 : 4.1), C: axis === 'x' ? 1.65 : 1.3, mu, E: axis === 'x' ? 0 : -0.2};
+                if (calibration && axis === 'y') {
+                    const fitted = calibration.rows[index ? 4 : 1];
+                    for (const key of ['B', 'C', 'mu', 'E']) defaults[key] = fitted[key];
+                }
+                html += `<fieldset><legend class="text-xs text-cyan-300">${axis === 'y' ? 'Lateral' : 'Longitudinal'} / ${index ? 'heavy' : 'light'}</legend>`;
+                for (const [key, value] of Object.entries(defaults)) {
+                    const id = `mf-${axis}-${index}-${key}`;
+                    const label = key === 'B' ? (axis === 'y' ? 'B (1/deg)' : 'B (1/fraction)') : key === 'mu' ? 'D / Fz' : key;
+                    const limits = key === 'C' ? 'min="1.01" max="2"' : key === 'E' ? 'min="-20" max="0.999"' : 'min="0.000001" max="10000"';
+                    html += `<label for="${id}">${label}<input id="${id}" class="input-box" type="number" ${limits} step="any" value="${Number(value.toPrecision(10))}" required></label>`;
+                }
+                html += '</fieldset>';
+            }
+            document.getElementById('mf-coefficients').innerHTML = html;
+        }
+
+        function readTireSettings() {
+            const mode = document.getElementById('mf-mode').value, direct = mode === 'direct';
+            document.querySelectorAll('#mf-coefficients input').forEach(el => el.disabled = !direct);
+            ['mf-decay', 'mf-long-ratio', 'in-mu-max', 'in-mu-min'].forEach(id => document.getElementById(id).disabled = direct);
+            ['in-sa-light', 'in-sa-heavy'].forEach(id => document.getElementById(id).disabled = mode !== 'estimate');
+            ['mf-fz-low', 'mf-fz-high', 'mf-ia', 'mf-pressure'].forEach(id => document.getElementById(id).disabled = mode === 'ttc');
+            if (mode === 'ttc') {
+                document.getElementById('mf-ia').value = TTC_CALIBRATION.iaDeg;
+                document.getElementById('mf-pressure').value = TTC_CALIBRATION.pressurePsi;
+            }
+            const inputs = [...document.querySelectorAll('#tire-panel input:not(:disabled)')];
+            if (inputs.some(el => !el.checkValidity())) throw new Error('Enter finite coefficients within the allowed ranges.');
+            const m = {mode, scale: getVal('mf-scale'), decay: getVal('mf-decay'), longRatio: getVal('mf-long-ratio'),
+                low: getVal('mf-fz-low'), high: getVal('mf-fz-high'), yLimit: getVal('mf-slip-limit'), xLimit: getVal('mf-ratio-limit') / 100};
+            if (m.high <= m.low) throw new Error('Heavy reference load must exceed light reference load.');
+            const estimateInputs = mode === 'ttc' ? ['in-mu-max', 'in-mu-min'] : ['in-mu-max', 'in-mu-min', 'in-sa-light', 'in-sa-heavy'];
+            if (!direct && estimateInputs.some(id => !(getVal(id) > 0) || !Number.isFinite(getVal(id)))) throw new Error('Estimated friction and peak slip angles must be finite and positive.');
+            for (const axis of ['x', 'y']) m[axis] = [0, 1].map(index => Object.fromEntries(['B', 'C', 'mu', 'E'].map(key => [key, getVal(`mf-${axis}-${index}-${key}`)])));
+            if (mode === 'ttc') m.calibration = TTC_CALIBRATION.rows;
+            document.getElementById('mf-provenance').textContent = mode === 'ttc' ? 'B2356run8 / 12 psi / IA 0 deg; longitudinal estimated' : mode === 'direct' ? 'Manual coefficients; reference IA and pressure are metadata' : 'Uncalibrated load-sensitive estimate';
             return m;
         }
 
+        function plotTirePreview(s) {
+            const axis = document.getElementById('mf-axis').value, Fz = getVal('mf-preview-fz');
+            const limit = axis === 'y' ? s.tire.yLimit : s.tire.xLimit, displayScale = axis === 'y' ? 1 : 100;
+            const p = tireParameters(Fz, axis, s), peak = tirePeak(p, limit);
+            const slips = Array.from({length: 481}, (_, i) => -limit + 2 * limit * i / 480);
+            const traces = [
+                {x: slips.map(x => x * displayScale), y: slips.map(x => magicForce(x, p)), mode: 'lines', name: 'Force', line: {color: '#34d399'}},
+                {x: [-peak.slip * displayScale, peak.slip * displayScale], y: [-peak.force, peak.force], mode: 'markers', name: peak.edge ? 'Fit boundary' : 'Model peak', marker: {color: '#fbbf24', size: 9}}
+            ];
+            const knee = axis === 'y' ? tireKnee(p, limit) : null;
+            if (knee) traces.push({x: [knee.slip], y: [knee.force], mode: 'markers', name: 'Geometric knee', marker: {symbol: 'diamond', color: '#f97316', size: 8}});
+            if (axis === 'y' && s.tire.mode === 'ttc') {
+                const row = s.tire.calibration.reduce((best, row) => Math.abs(row.Fz-Fz) < Math.abs(best.Fz-Fz) ? row : best);
+                if (Math.abs(row.Fz-Fz) < 1) traces.push({x: row.alpha, y: row.muBinned.map(mu => mu * Fz * s.tire.scale), mode: 'markers', name: 'TTC bin medians', marker: {color: '#60a5fa', size: 3}});
+            }
+            Plotly.react('tire-preview', traces, {title: {text: `${axis === 'y' ? 'Lateral' : 'Longitudinal'} force / ${Fz.toFixed(1)} N`, font: {size: 14}}, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: {color: '#cbd5e1'}, margin: {t: 40, l: 65, r: 15, b: 80},
+                xaxis: {title: axis === 'y' ? 'Slip angle (deg)' : 'Slip ratio (%)', gridcolor: '#334155'}, yaxis: {title: 'Force (N)', gridcolor: '#334155'}, legend: {orientation: 'h', y: -0.3}}, {displayModeBar: false, responsive: true});
+            const range = s.tire.mode === 'ttc' && axis === 'y' ? [s.tire.calibration[0].Fz, s.tire.calibration.at(-1).Fz] : [s.tire.low, s.tire.high];
+            const clamped = (s.tire.mode === 'direct' || (s.tire.mode === 'ttc' && axis === 'y')) && (Fz < range[0] || Fz > range[1]);
+            document.getElementById('tire-summary').textContent = `B ${p.B.toPrecision(5)} | C ${p.C.toPrecision(4)} | D ${p.D.toFixed(1)} N | E ${p.E.toPrecision(4)} | ${peak.edge ? 'Boundary maximum' : 'Peak'} ${(peak.slip * displayScale).toFixed(2)}${axis === 'y' ? ' deg' : '%'} | Force/Fz ${(peak.force / Fz).toFixed(3)}${knee ? ' | Knee ' + knee.slip.toFixed(2) + ' deg' : ''}${clamped ? ' | Outside reference loads: coefficients clamped' : ''}`;
+        }
+
         function updatePhysics() {
+            if (!rawFL || !rawRL) return;
+            let tire;
+            try { tire = readTireSettings(); document.getElementById('tire-error').textContent = ''; }
+            catch (error) { document.getElementById('tire-error').textContent = error.message + ' Last valid plots retained.'; return; }
             let s = { // Single State Object
+                tire,
                 mass: getVal('in-mass'), cg: getVal('in-cg'), wb: getVal('in-wb'), tf: getVal('in-tf'), tr: getVal('in-tr'), wd: getVal('in-wd')/100,
                 rh: getVal('in-rh'), mu: getVal('in-mu')*9.81, aero_m: document.getElementById('in-aeromode').value,
                 cla: getVal('in-cla'), a_bal: getVal('in-aerobal')/100, b_bal: getVal('in-brakebias')/100,
@@ -413,16 +591,17 @@
                 s.reqY[c.id] = (reqY*(c.f?s.wd:1-s.wd)) * (s.Fz[c.id] / axleFz);
                 s.req[c.id] = Math.hypot(s.reqX[c.id], s.reqY[c.id]);
                 
-                // USE NEW EXPONENTIAL DECAY FOR PEAK GRIP
-                s.grip[c.id] = getTireMu(s.Fz[c.id], s.mu_max, s.mu_min) * s.Fz[c.id]; 
-                
-                s.sa[c.id] = pacejka(s.reqY[c.id], s.Fz[c.id], false, s);
-                s.sr[c.id] = pacejka(s.reqX[c.id], s.Fz[c.id], true, s);
-                s.util[c.id] = s.grip[c.id]>0 ? (s.req[c.id]/s.grip[c.id])*100 : (s.req[c.id]>0?100:0);
+                const capacity = tireCapacity(s.Fz[c.id], s);
+                const utilization = tireUtilization(s.reqX[c.id], s.reqY[c.id], capacity);
+                // Radial capacity of an approximate ellipse, not a combined-slip MF fit.
+                s.grip[c.id] = utilization > 0 ? s.req[c.id] / utilization : capacity.y;
+                s.sa[c.id] = inverseTire(s.reqY[c.id], tireParameters(s.Fz[c.id], 'y', s), s.tire.yLimit);
+                s.sr[c.id] = 100 * inverseTire(s.reqX[c.id], tireParameters(s.Fz[c.id], 'x', s), s.tire.xLimit);
+                s.util[c.id] = utilization * 100;
             });
 
             // Logging
-            simHistory.time.push(currentTime); currentTime+=0.1;
+            simHistory.time.push(currentTime); currentTime+=1;
             corners.forEach(c => { simHistory['g'+c.id].push(s.grip[c.id]); simHistory['r'+c.id].push(s.req[c.id]); });
             if(simHistory.time.length > 100) for(let k in simHistory) simHistory[k].shift();
 
@@ -433,24 +612,34 @@
                 let t_dWr = (Ws*g*harm*(1-s.rsd)/s.tr) + (Wsr*g*s.rcr/s.tr) + (2*s.mu*g*203.2/s.tr);
                 let uF=0, uR=0;
                 
-                let fzl_f = Math.max(0, (s.W*s.wd/2) + s.df_tot*s.a_bal/2 + t_dWf);
-                let fzr_f = Math.max(0, (s.W*s.wd/2) + s.df_tot*s.a_bal/2 - t_dWf);
-                let fzl_r = Math.max(0, (s.W*(1-s.wd)/2) + s.df_tot*(1-s.a_bal)/2 + t_dWr);
-                let fzr_r = Math.max(0, (s.W*(1-s.wd)/2) + s.df_tot*(1-s.a_bal)/2 - t_dWr);
+                let fzl_f = Math.max(0, (s.W*s.wd/2) - s.dW_lng/2 + s.df_tot*s.a_bal/2 + t_dWf);
+                let fzr_f = Math.max(0, (s.W*s.wd/2) - s.dW_lng/2 + s.df_tot*s.a_bal/2 - t_dWf);
+                let fzl_r = Math.max(0, (s.W*(1-s.wd)/2) + s.dW_lng/2 + s.df_tot*(1-s.a_bal)/2 + t_dWr);
+                let fzr_r = Math.max(0, (s.W*(1-s.wd)/2) + s.dW_lng/2 + s.df_tot*(1-s.a_bal)/2 - t_dWr);
                 
                 let axleF = fzl_f + fzr_f || 1, axleR = fzl_r + fzr_r || 1;
 
                 corners.forEach(c => {
                     let Fz = c.id==='FL'?fzl_f : c.id==='FR'?fzr_f : c.id==='RL'?fzl_r : fzr_r;
                     let ry = (s.mass*g*9.81*(c.f?s.wd:1-s.wd)) * (Fz / (c.f?axleF:axleR));
-                    // USE EXPONENTIAL DECAY FOR THE ENVELOPE GENERATOR
-                    let pk = getTireMu(Fz, s.mu_max, s.mu_min) * Fz;
-                    let u = pk>0 ? (Math.hypot(s.reqX[c.id], ry) / pk)*100 : 100;
+                    const ax = c.f ? (s.lng < 0 ? reqX * s.b_bal : 0) : (s.lng < 0 ? reqX * (1-s.b_bal) : reqX);
+                    const rx = ax * Fz / (c.f ? axleF : axleR);
+                    const u = tireUtilization(rx, ry, tireCapacity(Fz, s)) * 100;
                     if(c.f) uF = Math.max(uF, u); else uR = Math.max(uR, u);
                 });
                 s.swp.G.push(g); s.swp.uF.push(uF); s.swp.uR.push(uR);
             }
             updateUI(s);
+            plotTirePreview(s);
+            const modelMessages = [];
+            const lifted = corners.filter(c => s.Fz[c.id] <= 0).map(c => c.id);
+            if (lifted.length) modelMessages.push(`Wheel lift: ${lifted.join(', ')}; four-contact load-transfer approximation exceeded`);
+            if (s.tire.mode !== 'estimate') {
+                const limits = s.tire.mode === 'ttc' ? [s.tire.calibration[0].Fz, s.tire.calibration.at(-1).Fz] : [s.tire.low, s.tire.high];
+                const outside = corners.filter(c => s.Fz[c.id] > 0 && (s.Fz[c.id] < limits[0] || s.Fz[c.id] > limits[1])).map(c => c.id);
+                if (outside.length) modelMessages.push(`Outside reference loads: ${outside.join(', ')}; boundary coefficients used`);
+            }
+            document.getElementById('tire-model-status').textContent = modelMessages.join('. ');
         }
 
         // ==========================================
@@ -480,19 +669,21 @@
 
             ['FL','FR','RL','RR'].forEach(id => {
                 let el = document.getElementById(`tire-${id}`), u = s.util[id];
-                if(u >= 100) el.classList.add('grip-lost'); else { el.classList.remove('grip-lost'); el.style.backgroundColor = u>85?'#f59e0b':(u>60?'#eab308':(u>20?'#22c55e':'#475569')); }
+                if(u >= 100) el.classList.add('grip-lost'); else { el.classList.remove('grip-lost'); el.style.backgroundColor = u>85?'#f59e0b':(u>60?'#eab308':(u>20?'#22c55e':'#cbd5e1')); }
                 document.getElementById(`load-${id}`).innerText = Math.round(s.Fz[id]) + " N";
-                document.getElementById(`util-${id}`).innerText = u>=100 ? "SLIDING" : Math.round(u)+"%";
+                document.getElementById(`util-${id}`).innerText = u>=100 ? "AT LIMIT" : Math.round(u)+"%";
                 document.getElementById(`rh-${id}`).innerText = Math.max(0, s.h[id]).toFixed(1) + " mm RH";
-                document.getElementById(`sa-${id}`).innerText = s.sa[id]>=14.9 ? "SA: --" : "SA: "+s.sa[id].toFixed(1)+"°";
-                document.getElementById(`sr-${id}`).innerText = s.sr[id]>=24.9 ? "SR: LIMIT" : "SR: "+s.sr[id].toFixed(1)+"%";
+                document.getElementById(`sa-${id}`).innerText = !Number.isFinite(s.sa[id]) ? "SA: LIMIT" : "SA*: "+s.sa[id].toFixed(1)+"°";
+                document.getElementById(`sr-${id}`).innerText = !Number.isFinite(s.sr[id]) ? "SR: LIMIT" : "SR*: "+s.sr[id].toFixed(1)+"%";
+                document.getElementById(`sa-${id}`).title = 'Pure-lateral equivalent slip magnitude; not a combined-slip solution.';
+                document.getElementById(`sr-${id}`).title = 'Pure-longitudinal equivalent slip magnitude; not a combined-slip solution.';
                 document.getElementById(`bar-${id}`).style.width = Math.min(100, u)+"%";
                 document.getElementById(`bar-${id}`).style.backgroundColor = u>=100 ? '#fff' : (u>85?'#ef4444':'#10b981');
             });
 
             Plotly.react('chart-transfer', [{x:['Front Axle','Rear Axle'], y:[s.transfers.uf, s.transfers.ur], name:'Unsprung', type:'bar', marker:{color:'#94a3b8'}}, {x:['Front Axle','Rear Axle'], y:[s.transfers.gf, s.transfers.gr], name:'Geometric', type:'bar', marker:{color:'#f97316'}}, {x:['Front Axle','Rear Axle'], y:[s.transfers.ef, s.transfers.er], name:'Elastic', type:'bar', marker:{color:'#3b82f6'}}], {
                 title:{text:`Load Transfer Anatomy`, font:{color:'#f8fafc', size:12}}, barmode:'relative', paper_bgcolor:'transparent', plot_bgcolor:'transparent', font:{color:'#cbd5e1'}, margin:{t:30, l:50, r:10, b:40}, 
-                xaxis:{title:'Axle', gridcolor:'#334155'}, yaxis:{title:'Force (N)', gridcolor:'#334155'}, legend:{orientation:'h', y:-0.15}
+                xaxis:{gridcolor:'#334155'}, yaxis:{title:'Force (N)', gridcolor:'#334155'}, legend:{orientation:'h', y:-0.15}
             }, {displayModeBar:false});
 
             Plotly.react('chart-rollaxis', [{x:[0, s.wb], y:[s.rcf, s.rcr], mode:'lines+markers', name:'Axis', line:{color:'#f97316', dash:'dash', width:3}, marker:{size:8}}, {x:[s.wb*(1-s.wd)], y:[s.cg], mode:'markers+text', text:[`CG (${s.cg})`], textposition:'top center', marker:{size:14, color:'#38bdf8'}}, {x:[-200, s.wb+200], y:[0,0], mode:'lines', name:'Ground', line:{color:'#64748b'}}], {
@@ -512,12 +703,13 @@
                 maxF = Math.max(...p, ...r); isSlid = r[r.length-1] >= p[p.length-1];
                 gD.push({x:simHistory.time, y:p, mode:'lines', name:'Available Grip', line:{color:'#94a3b8', dash:'dash'}}, {x:simHistory.time, y:r, mode:'lines', name:'Required Grip', line:{color:isSlid?'#ef4444':'#10b981', width:3}, fill:'tonexty', fillcolor:isSlid?'rgba(239,68,68,0.2)':'rgba(16,185,129,0.2)'});
             }
+            gD.forEach(trace => { if (trace.x.length === 1) trace.mode = 'markers'; });
             
             // Restored the showlegend flag and formatting
             Plotly.react('chart-grip', gD, {
                 title:{text:`Dynamic Tire Friction Envelope`, font:{color:'#f8fafc', size:12}},
                 paper_bgcolor:'transparent', plot_bgcolor:'transparent', font:{color:'#cbd5e1'}, margin:{t:30, l:50, r:10, b:40}, 
-                xaxis:{title:'Simulation Time (s)', gridcolor:'#334155'}, yaxis:{title:'Force (N)', gridcolor:'#334155', range:[0, maxF*1.2]}, 
+                xaxis:{title:'Update index', gridcolor:'#334155'}, yaxis:{title:'Force (N)', gridcolor:'#334155', range:[0, Math.max(1, maxF*1.2)]}, 
                 showlegend:true, legend:{orientation:'h', y:-0.3}
             }, {displayModeBar:false});
 
@@ -528,9 +720,11 @@
             }, {displayModeBar:false});
         }
 
+        buildCoefficientPanel();
         document.querySelectorAll('input').forEach(el => el.addEventListener('input', updatePhysics));
+        document.querySelectorAll('#tire-panel select').forEach(el => el.addEventListener('change', updatePhysics));
         function resetSliders() { document.getElementById('slider-lat').value=0; document.getElementById('slider-long').value=0; document.getElementById('slider-speed').value=45; updatePhysics(); }
-        window.addEventListener('resize', () => { ['chart-3d','chart-transfer','chart-rollaxis','chart-grip','chart-gsweep'].forEach(id => { if(document.getElementById(id)) Plotly.Plots.resize(id); }); });
+        window.addEventListener('resize', () => { ['chart-3d','chart-transfer','chart-rollaxis','chart-grip','chart-gsweep','tire-preview'].forEach(id => { if(document.getElementById(id)) Plotly.Plots.resize(id); }); });
         initData();
     </script>
 </body>
