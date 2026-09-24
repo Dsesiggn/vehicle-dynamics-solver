@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "name": "CR26 / original front geometry",
+  "wheelbase": 1600,
+  "wheelDiameter": 406.4,
+  "axles": {
+    "front": {
+      "topology": "double-wishbone",
+      "track": 1117.6,
+      "steered": true,
+      "actuation": "pushrod",
+      "mounting": "bell-crank",
+      "rackLength": 438.16,
+      "rackTravel": 60,
+      "springOD": 65,
+      "damperOD": 40,
+      "hardpoints": {
+        "lca_front": [
+          215.9,
+          -117.48,
+          120.65
+        ],
+        "lca_rear": [
+          215.9,
+          123.42,
+          127
+        ],
+        "lca_outer": [
+          533.4,
+          -3.18,
+          119.13
+        ],
+        "tie_rod_inner": [
+          219.08,
+          -69.85,
+          151.99
+        ],
+        "tie_rod_outer": [
+          542.93,
+          -73.03,
+          171.45
+        ],
+        "wheel_center": [
+          558.8,
+          0,
+          203.2
+        ],
+        "uca_front": [
+          263.53,
+          -127,
+          263.53
+        ],
+        "uca_rear": [
+          232.43,
+          127,
+          248.77
+        ],
+        "uca_outer": [
+          482.6,
+          9.12,
+          285.98
+        ],
+        "actuation_outer": [
+          478.79999999999995,
+          0,
+          138.2
+        ],
+        "rocker_pivot": [
+          234.69599999999997,
+          0,
+          383.2
+        ],
+        "rocker_rod": [
+          234.69599999999997,
+          0,
+          308.2
+        ],
+        "rocker_damper": [
+          169.69599999999997,
+          0,
+          383.2
+        ],
+        "damper_top": [
+          100.58399999999999,
+          0,
+          503.2
+        ]
+      }
+    },
+    "rear": {
+      "topology": "double-wishbone",
+      "track": 1180,
+      "steered": false,
+      "actuation": "pushrod",
+      "mounting": "bell-crank",
+      "rackLength": 440,
+      "rackTravel": 60,
+      "springOD": 65,
+      "damperOD": 40,
+      "hardpoints": {
+        "lca_front": [
+          236,
+          -125,
+          98.19999999999999
+        ],
+        "lca_rear": [
+          236,
+          125,
+          98.19999999999999
+        ],
+        "lca_outer": [
+          555,
+          0,
+          108.19999999999999
+        ],
+        "tie_rod_inner": [
+          220,
+          -95,
+          168.2
+        ],
+        "tie_rod_outer": [
+          565,
+          -90,
+          168.2
+        ],
+        "wheel_center": [
+          590,
+          0,
+          203.2
+        ],
+        "uca_front": [
+          253.7,
+          -110,
+          303.2
+        ],
+        "uca_rear": [
+          253.7,
+          110,
+          303.2
+        ],
+        "uca_outer": [
+          530,
+          0,
+          288.2
+        ],
+        "actuation_outer": [
+          510,
+          0,
+          138.2
+        ],
+        "rocker_pivot": [
+          247.79999999999998,
+          0,
+          383.2
+        ],
+        "rocker_rod": [
+          247.79999999999998,
+          0,
+          308.2
+        ],
+        "rocker_damper": [
+          182.79999999999998,
+          0,
+          383.2
+        ],
+        "damper_top": [
+          106.2,
+          0,
+          503.2
+        ]
+      }
+    }
+  }
+}

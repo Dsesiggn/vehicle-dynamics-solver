@@ -1,9 +1,14 @@
+import { importDesign, readLibrary, STORAGE } from './migration.js';
 import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving} from './model.js';
 import {solveAxle} from './solver.js';
 import {SuspensionViewer} from './viewer.js';
-const $=id=>document.getElementById(id), STORAGE='suspension-studio.designs.v1';
-let design=newDesign(),active='front',saved=[],bump=0,rack=0,toastTimer,dirty=false;
-try { const value=JSON.parse(localStorage.getItem(STORAGE)||'[]'); if(Array.isArray(value)) saved=value.filter(d=>validateDesign(d).length===0); } catch { /* App remains usable if storage is unavailable. */ }
+const $=id=>document.getElementById(id);
+let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,toastTimer,dirty=false;
+try {
+  const library=readLibrary(localStorage);saved=library.saved;rejected=library.rejected;
+  if(library.migrated)libraryNotice=`Converted ${library.migrated} saved design(s) to SAE J670 Z-down. Original v1 storage is retained.`;
+  if(rejected.length)libraryNotice+=` ${rejected.length} unreadable design(s) retained in storage but cannot be opened.`;
+} catch { storageReadable=false;libraryNotice='Saved library could not be read. Export JSON to keep new work; the stored library will not be overwritten.'; }
 const viewer=new SuspensionViewer($('scene'));
 const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(message) { $('toast').textContent=message;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),4200); }
@@ -30,9 +35,9 @@ function update() {
   $('bump-value').textContent=`${bump} mm`;$('steer-value').textContent=`${rack} mm`;
   if(errors.length) $('solver-results').innerHTML=`<p class="solver-status error">${errors.map(escape).join('<br>')}</p>`;
   else if(!result.ok) $('solver-results').innerHTML=`<p class="solver-status error">${escape(result.left.reason||result.right.reason)} Showing static geometry.</p>`;
-  else $('solver-results').innerHTML=`<div class="solver-metrics"><span>Left Δ camber <strong>${result.left.camber.toFixed(2)}°</strong></span><span>Left Δ toe <strong>${result.left.toe.toFixed(2)}°</strong></span><span>Right Δ toe <strong>${result.right.toe.toFixed(2)}°</strong></span><span>Left damper compression <strong>${result.left.compression.toFixed(2)} mm</strong></span></div><p class="solver-status">● Position solved · maximum constraint residual ${Math.max(result.left.error,result.right.error).toFixed(5)} mm</p>`;
+  else $('solver-results').innerHTML=`<div class="solver-metrics"><span>Left Δ camber <strong>${result.left.camber.toFixed(2)}°</strong></span><span>Left Δ toe-in <strong>${result.left.toe.toFixed(2)}°</strong></span><span>Right Δ toe-in <strong>${result.right.toe.toFixed(2)}°</strong></span><span>Left / right steer <strong>${result.left.steer.toFixed(2)}° / ${result.right.steer.toFixed(2)}°</strong></span><span>Left damper compression <strong>${result.left.compression.toFixed(2)} mm</strong></span></div><p class="solver-status">● Position solved · maximum constraint residual ${Math.max(result.left.error,result.right.error).toFixed(5)} mm</p>`;
   const invalidField=[...document.querySelectorAll('input[type=number]')].some(input=>input.value===''||!input.checkValidity());
-  $('save').disabled=errors.length>0||invalidField;$('export').disabled=errors.length>0||invalidField;
+  $('save').disabled=!storageReadable||errors.length>0||invalidField;$('export').disabled=errors.length>0||invalidField;
   if(!$('hardpoints-panel').hidden && !document.activeElement?.dataset.point) renderHardpoints();
 }
 function renderHardpoints() {
@@ -64,15 +69,15 @@ $('design-name').addEventListener('input',()=>{design.name=$('design-name').valu
 $('wheelbase').addEventListener('input',()=>{if(!validInput($('wheelbase')))return;design.wheelbase=Number($('wheelbase').value);markDirty();update();});
 $('wheel-diameter').addEventListener('input',()=>{
   if(!validInput($('wheel-diameter')))return;const diameter=Number($('wheel-diameter').value),dz=(diameter-design.wheelDiameter)/2;
-  for(const a of Object.values(design.axles))for(const p of Object.values(a.hardpoints))p[2]+=dz;
+  for(const a of Object.values(design.axles))for(const p of Object.values(a.hardpoints))p[2]-=dz;
   design.wheelDiameter=diameter;resetMotion();markDirty();update();
 });
 $('hardpoint-rows').addEventListener('input',e=>{
   const input=e.target;if(!input.dataset.point||!validInput(input))return;
   const a=design.axles[active],backup=clone(a),key=input.dataset.point,axis=Number(input.dataset.axis);
   a.hardpoints[key][axis]=Number(input.value);
-  if(key==='wheel_center'&&axis===0)a.track=Number(input.value)*2;
-  if(key==='tie_rod_inner'&&axis===0)a.rackLength=Number(input.value)*2;
+  if(key==='wheel_center'&&axis===1)a.track=-Number(input.value)*2;
+  if(key==='tie_rod_inner'&&axis===1)a.rackLength=-Number(input.value)*2;
   const errors=validateDesign(design);if(errors.length){design.axles[active]=backup;renderHardpoints();toast(errors[0]);return;}
   resetMotion();markDirty();update();
   $('track').value=a.track;$('rack-length').value=Number(a.rackLength.toFixed(3));
@@ -86,11 +91,11 @@ for(const button of document.querySelectorAll('[data-view]'))button.addEventList
 $('reset-view').addEventListener('click',()=>{viewer.view('iso');document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view==='iso'));});
 $('show-labels').addEventListener('change',()=>{viewer.labels=$('show-labels').checked;viewer.draw();});
 function load(d) {
-  const errors=validateDesign(d);if(errors.length){$('library-error').textContent=errors.join(' ');return;}
-  design=clone(d);active='front';resetMotion();dirty=false;fields();update();$('save-state').textContent='Design loaded';$('library').close();toast(`Opened ${design.name}`);
+  let imported;try{imported=importDesign(d);}catch(error){$('library-error').textContent=error.message;return;}
+  design=imported.design;active='front';resetMotion();dirty=false;fields();update();$('save-state').textContent='Design loaded';$('library').close();toast(imported.migrated?`Converted ${design.name} to SAE J670 Z-down; save or export to keep v2.`:`Opened ${design.name}`);
 }
 function showLibrary() {
-  $('library-error').textContent='';
+  $('library-error').textContent=libraryNotice;
   $('presets').innerHTML=[['formula','Formula / double wishbone','1200 mm front track · Pushrod · Generated starting geometry'],['road','Road car / strut + multi-link','MacPherson front · Five-link rear · Generated starting geometry'],['cr26','CR26 / original front geometry','Original FS-CR26.py front hardpoints · Rear and actuation geometry are generated; wheelbase is assumed.']].map(([id,name,description])=>`<button class="library-item" data-preset="${id}"><strong>${name} ↗</strong><small>${description}</small></button>`).join('');
   $('saved-designs').innerHTML=saved.length?saved.map((d,i)=>`<button class="library-item" data-saved="${i}"><strong>${escape(d.name)} ↗</strong><small>${TOPOLOGIES[d.axles.front.topology].name} / ${TOPOLOGIES[d.axles.rear.topology].name} · ${d.wheelbase} mm wheelbase</small></button>`).join(''):'<p class="hint">No saved designs yet. Save your first configuration to find it here.</p>';
   $('library').showModal();
@@ -101,10 +106,11 @@ $('presets').addEventListener('click',e=>{const b=e.target.closest('[data-preset
 $('saved-designs').addEventListener('click',e=>{const b=e.target.closest('[data-saved]');if(b)load(saved[Number(b.dataset.saved)]);});
 $('new-design').addEventListener('click',()=>{if(dirty&&!confirm('Start a new design and discard the current unsaved draft?'))return;load(newDesign());$('save-state').textContent='Unsaved design';});
 $('save').addEventListener('click',()=>{
+  if(!storageReadable){toast(libraryNotice);return;}
   const errors=validateDesign(design);if(errors.length){toast(errors[0]);return;}
   const next=clone(saved),index=next.findIndex(d=>d.name===design.name);
   if(index>=0)next[index]=clone(design);else next.push(clone(design));
-  try{localStorage.setItem(STORAGE,JSON.stringify(next));saved=next;dirty=false;$('save-state').textContent='Saved locally';toast('Design saved in this browser.');}catch{toast('Browser storage is unavailable or full. Export JSON to keep your design.');}
+  try{localStorage.setItem(STORAGE,JSON.stringify([...next,...rejected]));saved=next;dirty=false;$('save-state').textContent='Saved locally';toast('Design saved in this browser.');}catch{toast('Browser storage is unavailable or full. Export JSON to keep your design.');}
 });
 $('export').addEventListener('click',()=>{
   if(validateDesign(design).length)return;
@@ -117,3 +123,4 @@ $('import-file').addEventListener('change',async e=>{
 });
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
 fields();update();
+if(libraryNotice)toast(libraryNotice);
