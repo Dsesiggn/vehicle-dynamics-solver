@@ -4,7 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#692f50"><title>Suspension Studio · Vehicle Dynamics</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./src/styles.css">
+  <script src="./src/theme.js"></script>
+  <link rel="stylesheet" href="./src/styles.css?v=0.2.1">
 </head>
 <body>
   <aside class="sidebar">
@@ -14,7 +15,7 @@
     <div class="sidebar-bottom"><span class="version-dot"></span> Studio / 0.2 <span class="small">Design foundation</span><a href="./README.md" target="_blank">Documentation ↗</a></div>
   </aside>
   <div class="shell">
-    <header class="topbar"><div>Workspace <span>/</span> <strong>Suspension design</strong></div><div class="top-actions"><span id="save-state">Unsaved design</span><button class="button subtle" id="export">↓ Export JSON</button><button class="button primary" id="save">Save design <span>↗</span></button></div></header>
+    <header class="topbar"><div>Workspace <span>/</span> <strong>Suspension design</strong></div><div class="top-actions"><span id="save-state">Unsaved design</span><button id="theme-toggle" class="button theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Dark mode"><span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-thumb"></span></span><span>Dark mode</span></button><button class="button subtle" id="export">↓ Export JSON</button><button class="button primary" id="save">Save design <span>↗</span></button></div></header>
     <main id="design">
       <div class="page-heading"><div><div class="eyebrow">VEHICLE ARCHITECTURE</div><h1>Suspension design<span>.</span></h1><p>A well-defined suspension is where great vehicle dynamics begins.</p></div><span class="stage-badge"><span></span> CONCEPT STAGE</span></div>
       <section class="start-options" aria-label="Starting point">

@@ -1,7 +1,10 @@
 import { mirrorPoint, toDisplay } from './coordinates.js';
 import {linkPairs,isMoving} from './model.js';
 import {add,sub,scale,unit,cross,rotate} from './solver.js';
-const COLORS={arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7'};
+const PALETTES={
+  light:{arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af'},
+  dark:{arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3'},
+};
 export class SuspensionViewer {
   constructor(canvas) {
     this.canvas=canvas;this.ctx=canvas.getContext('2d');this.yaw=-.48;this.pitch=.32;this.zoom=1;this.labels=false;
@@ -16,17 +19,18 @@ export class SuspensionViewer {
   update(a,diameter,motion=null) {this.axle=a;this.diameter=diameter;this.motion=motion;this.draw();}
   draw() {
     if(!this.axle)return;
+    const colors=PALETTES[document.documentElement.dataset.theme]||PALETTES.light;
     const c=this.ctx,canvas=this.canvas,rect=canvas.getBoundingClientRect(),w=rect.width,h=rect.height,dpr=window.devicePixelRatio||1;
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
     const a=this.axle,s=Math.min(w/(a.track+this.diameter*.5+180),h/(this.diameter+350))*this.zoom;
     const project=point=>{const p=toDisplay(point),x=p[0]*Math.cos(this.yaw)-p[1]*Math.sin(this.yaw),depth=p[0]*Math.sin(this.yaw)+p[1]*Math.cos(this.yaw);return [w/2+x*s,h*.64-(p[2]-this.diameter*.3)*s*Math.cos(this.pitch)+depth*s*Math.sin(this.pitch),depth*Math.cos(this.pitch)+p[2]*Math.sin(this.pitch)];};
     const drawLine=(points,color,width=1,alpha=1,dash=[])=>{c.beginPath();points.forEach((p,i)=>{const [x,y]=project(p);i?c.lineTo(x,y):c.moveTo(x,y);});c.strokeStyle=color;c.globalAlpha=alpha;c.lineWidth=width;c.setLineDash(dash);c.stroke();c.setLineDash([]);c.globalAlpha=1;};
-    for(let x=-2000;x<=2000;x+=100)drawLine([[-900,x,0],[900,x,0]],'#bcc0cb',.6,.3);
-    for(let y=-900;y<=900;y+=100)drawLine([[y,-2000,0],[y,2000,0]],'#bcc0cb',.6,.3);
-    drawLine([[0,-1800,0],[0,1800,0]],'#b0acbc',.8,.5);
+    for(let x=-2000;x<=2000;x+=100)drawLine([[-900,x,0],[900,x,0]],colors.grid,.6,.3);
+    for(let y=-900;y<=900;y+=100)drawLine([[y,-2000,0],[y,2000,0]],colors.grid,.6,.3);
+    drawLine([[0,-1800,0],[0,1800,0]],colors.centerline,.8,.5);
     const objects=[];
     const line=(points,color,width=2,alpha=1)=>objects.push({depth:points.reduce((sum,p)=>sum+project(p)[2],0)/points.length,render:()=>drawLine(points,color,width,alpha)});
-    const point=(p,label)=>objects.push({depth:project(p)[2]+1,render:()=>{const [x,y]=project(p);c.beginPath();c.arc(x,y,2.6,0,Math.PI*2);c.fillStyle='#faf8fc';c.fill();c.strokeStyle=COLORS.point;c.lineWidth=1.2;c.stroke();if(this.labels){c.fillStyle='#766b83';c.font='7px system-ui';c.fillText(label,x+5,y-5);}}});
+    const point=(p,label)=>objects.push({depth:project(p)[2]+1,render:()=>{const [x,y]=project(p);c.beginPath();c.arc(x,y,2.6,0,Math.PI*2);c.fillStyle=colors.pointFill;c.fill();c.strokeStyle=colors.point;c.lineWidth=1.2;c.stroke();if(this.labels){c.fillStyle=colors.label;c.font='7px system-ui';c.fillText(label,x+5,y-5);}}});
     const cylinder=(p1,p2,radius,color)=>{
       const axis=unit(sub(p2,p1)),v=unit(cross(axis,Math.abs(axis[2])>.9?[1,0,0]:[0,0,1])),u=cross(axis,v);
       const ring=(p,r)=>Array.from({length:33},(_,i)=>add(p,add(scale(v,r*Math.cos(i*Math.PI/16)),scale(u,r*Math.sin(i*Math.PI/16)))));
@@ -36,33 +40,33 @@ export class SuspensionViewer {
     for(const side of [-1,1]) {
       const solved=this.motion?.ok?(side===-1?this.motion.left:this.motion.right):null;
       const p=solved?.points||Object.fromEntries(Object.entries(a.hardpoints).map(([k,v])=>[k,side===-1?v:mirrorPoint(v)]));
-      for(const [i,o] of linkPairs(a))line([p[i],p[o]],i==='tie_rod_inner'?COLORS.steering:COLORS.arm,2.7);
+      for(const [i,o] of linkPairs(a))line([p[i],p[o]],i==='tie_rod_inner'?colors.steering:colors.arm,2.7);
       const upright=Object.entries(p).filter(([k])=>isMoving(k)&&k!=='wheel_center'&&k!=='actuation_outer').map(([,v])=>v);
-      for(const v of upright)line([v,p.wheel_center],COLORS.upright,1.4,.6);
-      if(a.topology==='double-wishbone') {line([p.uca_front,p.uca_rear],COLORS.arm,1,.4);line([p.lca_front,p.lca_rear],COLORS.arm,1,.4);}
+      for(const v of upright)line([v,p.wheel_center],colors.upright,1.4,.6);
+      if(a.topology==='double-wishbone') {line([p.uca_front,p.uca_rear],colors.arm,1,.4);line([p.lca_front,p.lca_rear],colors.arm,1,.4);}
       let damperStart,damperEnd;
       if(a.topology==='macpherson'){damperStart=p.strut_top;damperEnd=p.strut_bottom;}
       else if(a.actuation==='direct'){damperStart=p.damper_top;damperEnd=p.actuation_outer;}
       else {
-        line([p.actuation_outer,p.rocker_rod],COLORS.actuator,2.7);
-        line([p.rocker_pivot,p.rocker_rod,p.rocker_damper,p.rocker_pivot],COLORS.actuator,2);
+        line([p.actuation_outer,p.rocker_rod],colors.actuator,2.7);
+        line([p.rocker_pivot,p.rocker_rod,p.rocker_damper,p.rocker_pivot],colors.actuator,2);
         damperStart=p.damper_top;damperEnd=p.rocker_damper;
       }
-      cylinder(damperStart,damperEnd,a.damperOD/2,COLORS.actuator);
+      cylinder(damperStart,damperEnd,a.damperOD/2,colors.actuator);
       const axis=unit(sub(damperEnd,damperStart)),v=unit(cross(axis,Math.abs(axis[0])>.9?[0,1,0]:[1,0,0])),u=cross(axis,v);
       const helix=Array.from({length:161},(_,i)=>{const t=i/160;return add(add(damperStart,scale(sub(damperEnd,damperStart),.12+.7*t)),add(scale(v,a.springOD/2*Math.cos(t*Math.PI*16)),scale(u,a.springOD/2*Math.sin(t*Math.PI*16))));});
-      line(helix,COLORS.actuator,1.4);
+      line(helix,colors.actuator,1.4);
       const wheelAxis=rotate([0,side,0],solved?.rotation||[0,0,0]),wc=p.wheel_center;
-      cylinder(add(wc,scale(wheelAxis,-65)),add(wc,scale(wheelAxis,65)),this.diameter/2,'#a0a2b6');
-      cylinder(add(wc,scale(wheelAxis,-50)),add(wc,scale(wheelAxis,50)),this.diameter*.28,'#aaa4b7');
-      line([add(wc,scale(wheelAxis,-85)),add(wc,scale(wheelAxis,85))],COLORS.upright,1);
+      cylinder(add(wc,scale(wheelAxis,-65)),add(wc,scale(wheelAxis,65)),this.diameter/2,colors.tire);
+      cylinder(add(wc,scale(wheelAxis,-50)),add(wc,scale(wheelAxis,50)),this.diameter*.28,colors.rim);
+      line([add(wc,scale(wheelAxis,-85)),add(wc,scale(wheelAxis,85))],colors.upright,1);
       for(const [key,value] of Object.entries(p))point(value,key.replaceAll('_',' '));
     }
     const chassis=Object.entries(a.hardpoints).filter(([k])=>!isMoving(k)&&!k.startsWith('rocker_')&&k!=='damper_top');
-    for(const [,p] of chassis)line([p,mirrorPoint(p)],COLORS.chassis,.8,.35);
+    for(const [,p] of chassis)line([p,mirrorPoint(p)],colors.chassis,.8,.35);
     objects.sort((a,b)=>a.depth-b.depth).forEach(o=>o.render());
     const axisOrigin=[w-44,h-53];
-    for(const [p,label,color] of [[[60,0,0],'X','#ae8497'],[[0,60,0],'Y','#8c9b86'],[[0,0,60],'Z','#8b93af']]) {
+    for(const [p,label,color] of [[[60,0,0],'X',colors.axisX],[[0,60,0],'Y',colors.axisY],[[0,0,60],'Z',colors.axisZ]]) {
       const o=project([0,0,0]),q=project(p),dx=(q[0]-o[0])*.7,dy=(q[1]-o[1])*.7;
       c.beginPath();c.moveTo(...axisOrigin);c.lineTo(axisOrigin[0]+dx,axisOrigin[1]+dy);c.strokeStyle=color;c.lineWidth=1;c.stroke();c.fillStyle=color;c.font='8px system-ui';c.fillText(label,axisOrigin[0]+dx+3,axisOrigin[1]+dy-2);
     }

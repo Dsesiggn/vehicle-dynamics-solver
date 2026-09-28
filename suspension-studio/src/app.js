@@ -10,6 +10,7 @@ try {
   if(rejected.length)libraryNotice+=` ${rejected.length} unreadable design(s) retained in storage but cannot be opened.`;
 } catch { storageReadable=false;libraryNotice='Saved library could not be read. Export JSON to keep new work; the stored library will not be overwritten.'; }
 const viewer=new SuspensionViewer($('scene'));
+document.addEventListener('studio-theme-change',()=>viewer.draw());
 const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(message) { $('toast').textContent=message;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),4200); }
 function markDirty() {dirty=true;$('save-state').textContent='Unsaved changes';}

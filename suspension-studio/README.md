@@ -21,6 +21,10 @@ Open http://127.0.0.1:8765/suspension-studio/ in a modern browser. ES modules re
 5. Open **Explore kinematics** to solve wheel bump and rack displacement. The preview shows the solved axle, or the static geometry with an explicit failure message when no solution is found.
 6. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Data does not leave the browser.
 
+## Appearance
+
+Use the **Dark mode** switch in the top bar to change the full workspace, including the 3D viewer. The switch supports keyboard activation and exposes its state to assistive technology. The app starts in light mode and remembers your explicit choice in this browser on this site. Theme preferences are separate from saved vehicle designs. If browser storage is unavailable, switching still works for the current page.
+
 ## Coordinates and parameter behavior
 
 - **SAE J670 Z-down:** +X forward, +Y right, +Z down. Dimensions and hardpoints are millimeters. Each axle has a chassis-fixed origin at its nominal static axle station, center plane, and ground datum; it is not the vehicle CG. See the complete [coordinate and sign contract](docs/COORDINATES.md).
@@ -38,6 +42,7 @@ Open http://127.0.0.1:8765/suspension-studio/ in a modern browser. ES modules re
 - `src/solver.js`: numerical rigid-body position solver, independent from DOM/rendering.
 - `src/viewer.js`: interactive canvas rendering of projected 3D geometry, orbit/zoom, orthographic camera views. No CDN/WebGL dependency.
 - `src/app.js`: editor, state transitions, local persistence, imports/exports.
+- `src/theme.js`: applies the saved appearance before first paint and handles the accessible theme switch.
 - `tests/*.test.mjs`: numerical, migration, physical-pose and schema regressions, run using Node 20+ with `node --test suspension-studio/tests/*.test.mjs` from the repository root.
 - `tests/index.html`: browser-run version of the 40 pure model/solver checks (eight additional fixture regressions run in Node) for environments without Node. Open `/suspension-studio/tests/` through the local server.
 

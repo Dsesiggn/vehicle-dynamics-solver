@@ -1,4 +1,5 @@
 :root {
+  color-scheme:light;
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   color:#282a30;
   background:#f7f7f8;
@@ -145,6 +146,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,ca
   background:#fff;
   font-size:11px;
   color:#8a8590;
+  gap:16px;
 }
 .topbar strong {
   font-weight:500;
@@ -157,6 +159,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,ca
   display:flex;
   align-items:center;
   gap:12px;
+  flex-shrink:0;
 }
 .top-actions #save-state {
   font-size:10px;
@@ -185,6 +188,39 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,ca
 }
 .button.subtle {
   color:#655e69;
+}
+.theme-toggle {
+  gap:8px;
+  white-space:nowrap;
+}
+.theme-toggle-track {
+  width:30px;
+  height:18px;
+  border:1px solid #8f8693;
+  border-radius:12px;
+  background:#8f8693;
+  padding:2px;
+  flex-shrink:0;
+}
+.theme-toggle-thumb {
+  display:block;
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#fff;
+  transition:transform .15s ease;
+}
+.theme-toggle[aria-checked=true] .theme-toggle-track {
+  background:var(--accent);
+  border-color:var(--accent);
+}
+.theme-toggle[aria-checked=true] .theme-toggle-thumb {
+  transform:translateX(12px);
+}
+@media(prefers-reduced-motion:reduce) {
+  .theme-toggle-thumb {
+    transition:none;
+  }
 }
 main {
   max-width:1550px;
@@ -954,6 +990,181 @@ dialog::backdrop {
   transform:translateX(-50%) translateY(0);
   opacity:1;
 }
+/* Dark-theme roles keep the interface and canvas legend on one palette. */
+:root[data-theme="dark"] {
+  color-scheme:dark;
+  --page:#111720;
+  --surface:#1b2330;
+  --surface-soft:#242e3c;
+  --surface-hover:#303b4c;
+  --control:#141c27;
+  --control-border:#6d788a;
+  --text:#e8ebf2;
+  --muted:#b1bac9;
+  --accent:#e5b0ca;
+  --accent-fill:#965776;
+  --accent-surface:#352b3b;
+  --accent-border:#ad7492;
+  --border:#394353;
+  --success:#a0cfb3;
+  --error:#ffa9b4;
+  --focus:#edbdd5;
+  --geometry-arm:#a8c6de;
+  --geometry-actuator:#df9fbe;
+  --geometry-steering:#dec18b;
+  --geometry-point:#e2bdf3;
+  color:var(--text);
+  background:var(--page);
+}
+:root[data-theme="dark"] :is(.sidebar,.topbar,.panel,.button,.start-card,.topology-card,dialog) {
+  background:var(--surface);
+  border-color:var(--border);
+  color:var(--text);
+}
+:root[data-theme="dark"] :is(.workspace-label,.nav-link,.sidebar-bottom,.sidebar-bottom a,.topbar,.button.subtle,.eyebrow,.page-heading p,.start-card small,.workflow,h2>span,.unit-badge,.field,.number-wrap>span,.small,.segmented button,.label-row,.required-dot,.topology-card small,.hint,.subsection-heading,.switch-label,.viewer-title>span,.viewer-title small,.view-buttons button,.viewer-bottom,.legend,.preview-stats small,.preview-stats strong span,.summary-row small,.summary-row>span:last-child,.next-card p,th,footer,.library-item small) {
+  color:var(--muted);
+}
+:root[data-theme="dark"] :is(.topbar strong,.viewer-title strong,.preview-stats strong,.summary-row strong,.next-card h3,td) {
+  color:var(--text);
+}
+:root[data-theme="dark"] :is(.nav-link.active,.stage-badge,.start-icon,.card-arrow,.workflow .current,.axle-icon,.icon-button) {
+  color:var(--accent);
+}
+:root[data-theme="dark"] :is(.nav-link.active,.stage-badge,.start-card.selected,.start-icon,.topology-card[aria-pressed=true]) {
+  background:var(--accent-surface);
+  border-color:var(--accent-border);
+}
+:root[data-theme="dark"] :is(.stage-badge>span,.workflow b) {
+  border-color:var(--control-border);
+}
+:root[data-theme="dark"] :is(.button.primary,.workflow .current b) {
+  color:#fff;
+  background:var(--accent-fill);
+  border-color:var(--accent-border);
+}
+:root[data-theme="dark"] .button:hover {
+  filter:brightness(1.12);
+}
+:root[data-theme="dark"] :is(.nav-link,.start-card,.topology-card,.library-item):hover {
+  background:var(--surface-hover);
+  border-color:var(--accent-border);
+}
+:root[data-theme="dark"] :is(.workflow button,.icon-button):hover {
+  color:var(--accent);
+}
+:root[data-theme="dark"] :is(button,a,input,select,canvas):focus-visible {
+  outline-color:var(--focus);
+}
+:root[data-theme="dark"] .theme-toggle-track {
+  background:var(--control-border);
+  border-color:var(--control-border);
+}
+:root[data-theme="dark"] .theme-toggle[aria-checked=true] .theme-toggle-track {
+  background:var(--accent-fill);
+  border-color:var(--accent-border);
+}
+:root[data-theme="dark"] .workflow i {
+  background:var(--border);
+}
+:root[data-theme="dark"] :is(.unit-badge,.segmented,.segmented button>span,.axle-icon,.solver-metrics,th) {
+  background:var(--surface-soft);
+}
+:root[data-theme="dark"] :is(.segmented,.subsection-heading,.viewer,.preview-stats,.preview-stats>div,.summary-row,th,td) {
+  border-color:var(--border);
+}
+:root[data-theme="dark"] .segmented button[aria-selected=true] {
+  background:var(--surface-hover);
+  color:var(--accent);
+  box-shadow:0 1px 4px #0003;
+}
+:root[data-theme="dark"] .segmented button:hover {
+  color:var(--text);
+}
+:root[data-theme="dark"] input:not([type=checkbox]):not([type=range]):not([type=file]),
+:root[data-theme="dark"] select {
+  background:var(--control);
+  border-color:var(--control-border);
+  color:var(--text);
+}
+:root[data-theme="dark"] input::placeholder {
+  color:var(--muted);
+}
+:root[data-theme="dark"] .required-dot:before {
+  color:var(--accent);
+}
+:root[data-theme="dark"] .topology-card svg {
+  stroke:var(--geometry-arm);
+}
+:root[data-theme="dark"] .topology-card[aria-pressed=true] svg {
+  stroke:var(--accent);
+}
+:root[data-theme="dark"] .topology-card .wheel {
+  stroke:var(--muted);
+  fill:var(--surface-hover);
+}
+:root[data-theme="dark"] .topology-card circle {
+  fill:var(--surface);
+}
+:root[data-theme="dark"] :is(.live-badge,.solver-status) {
+  color:var(--success);
+}
+:root[data-theme="dark"] :is(.live-badge>span,.version-dot) {
+  background:var(--success);
+}
+:root[data-theme="dark"] .viewer {
+  background:radial-gradient(ellipse at 50% 35%,#253044,#151d2a);
+}
+:root[data-theme="dark"] .view-buttons {
+  background:var(--surface);
+  border-color:var(--control-border);
+}
+:root[data-theme="dark"] .view-buttons button[aria-pressed=true] {
+  background:var(--accent-surface);
+  color:var(--accent);
+}
+:root[data-theme="dark"] .view-buttons button:hover {
+  background:var(--surface-hover);
+  color:var(--text);
+}
+:root[data-theme="dark"] .legend .arm {
+  background:var(--geometry-arm);
+}
+:root[data-theme="dark"] .legend .actuator {
+  background:var(--geometry-actuator);
+}
+:root[data-theme="dark"] .legend .steering {
+  background:var(--geometry-steering);
+}
+:root[data-theme="dark"] .legend .point {
+  background:var(--geometry-point);
+}
+:root[data-theme="dark"] .info-note {
+  background:var(--surface-soft);
+  border-color:var(--border);
+  color:var(--muted);
+}
+:root[data-theme="dark"] .solver-metrics {
+  color:var(--text);
+}
+:root[data-theme="dark"] :is(.error,#library-error) {
+  color:var(--error)!important;
+}
+:root[data-theme="dark"] dialog {
+  box-shadow:0 24px 80px #0008;
+}
+:root[data-theme="dark"] dialog::backdrop {
+  background:#070b13b3;
+}
+:root[data-theme="dark"] .library-item {
+  background:var(--surface-soft);
+  border-color:var(--control-border);
+}
+:root[data-theme="dark"] #toast {
+  color:var(--text);
+  background:var(--surface-hover);
+  border:1px solid var(--control-border);
+  box-shadow:0 8px 30px #0006;
+}
 @media(min-width:1500px) {
   .viewer {
     height:430px;
@@ -1048,6 +1259,15 @@ dialog::backdrop {
   }
 }
 @media(max-width:820px) {
+  .topbar {
+    flex-wrap:wrap;
+    height:auto;
+    min-height:76px;
+    padding-block:14px;
+  }
+  .top-actions {
+    margin-left:auto;
+  }
   .workspace-grid {
     grid-template-columns:1fr;
   }
@@ -1108,7 +1328,8 @@ dialog::backdrop {
   }
   .topbar {
     padding:0 16px;
-    height:65px;
+    min-height:65px;
+    padding-block:12px;
   }
   .topbar>div:first-child {
     display:none;
@@ -1116,6 +1337,15 @@ dialog::backdrop {
   .top-actions {
     width:100%;
     justify-content:space-between;
+    gap:7px;
+    flex-wrap:wrap;
+  }
+  .top-actions .button {
+    padding-inline:10px;
+    gap:7px;
+  }
+  .top-actions .theme-toggle {
+    padding-inline:8px;
   }
   main {
     padding:26px 16px 0;
