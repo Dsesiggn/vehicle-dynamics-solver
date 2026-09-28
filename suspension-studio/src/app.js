@@ -1,7 +1,7 @@
 import { importDesign, readLibrary, STORAGE } from './migration.js';
 import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving} from './model.js';
 import {solveAxle} from './solver.js';
-import {SuspensionViewer} from './viewer.js';
+import {SuspensionViewer} from './viewer.js?v=0.2.1';
 const $=id=>document.getElementById(id);
 let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,toastTimer,dirty=false;
 try {
