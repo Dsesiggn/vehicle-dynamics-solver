@@ -1,4 +1,4 @@
-import { clone, validateDesign, hardpointLabel } from './model.js?v=0.2.2';
+import { clone, validateDesign, hardpointLabel } from './model.js?v=0.2.3';
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
 
 /** Pure, non-mutating import boundary. Never infer axes from coordinate signs. */
@@ -9,6 +9,7 @@ export function importDesign(value) {
       throw Error('Ambiguous version 1 coordinate metadata. Import an original Studio v1 file or a complete v2 file.');
     }
     for (const a of Object.values(design.axles || {})) {
+      if (a && Object.hasOwn(a, 'antiRollBar')) throw Error('Version 1 files do not support ARB points. Import the original suspension, then enter ARB points in SAE coordinates.');
       if (!a?.hardpoints || typeof a.hardpoints !== 'object') throw Error('Version 1 design has missing hardpoints.');
       for (const [key, point] of Object.entries(a.hardpoints)) {
         if (!Array.isArray(point) || point.length !== 3 || !point.every(Number.isFinite)) throw Error(`Invalid version 1 ${hardpointLabel(key)} coordinates.`);

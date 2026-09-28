@@ -25,6 +25,14 @@ Open http://127.0.0.1:8765/suspension-studio/ in a modern browser. ES modules re
 
 Use the **Dark mode** switch in the top bar to change the full workspace, including the 3D viewer. The switch supports keyboard activation and exposes its state to assistive technology. The app starts in light mode and remembers your explicit choice in this browser on this site. Theme preferences are separate from saved vehicle designs. If browser storage is unavailable, switching still works for the current page.
 
+## U-bar anti-roll bar inputs
+
+Enable **U-bar anti-roll bar** under the selected axle's configuration to enter four left-side XYZ points: chassis bearing center, bar bend, lever-arm tip/drop-link joint, and suspension drop-link pickup. All coordinates use the same axle-local SAE frame and millimeter units as the suspension. No coordinates are generated: blank components remain `null`, and incomplete drafts can be saved/exported. Disabling the checkbox hides the inputs and preview while retaining the points. Front and rear are independent.
+
+The first layout is symmetric: each right-side point is `[X, -Y, Z]`. Once all coordinates are entered, the viewer draws a straight transverse section between the mirrored bends, arms from bends to lever tips, and links from tips to suspension pickups. Bearing centers are markers; for a straight transverse shaft, their X and Z should match the bends. This is a static packaging reference, including during bump/steering. It does not establish mechanical feasibility, assume which suspension body carries the pickup, or calculate ARB rotation, twist, stiffness, forces, bend radii, or clearances. The four-point representation is an implementation choice; reference passages are recorded in [the reference library](docs/REFERENCES.md#u-bar-input-and-static-layout-reference).
+
+ARB coordinates are retained when changing track, topology, actuation, or resetting suspension hardpoints; review the ARB layout after such changes. A wheel-diameter change shifts every entered ARB Z by `−Δdiameter/2`, consistently with the suspension's ground datum adjustment; blank Z values stay blank. JSON schema v2 accepts an optional `axles.front/rear.antiRollBar` object (`type`, `enabled`, `points`). Existing files without it remain compatible. ARB extensions on v1 files are rejected because that historical format did not define ARB coordinate semantics.
+
 ## Coordinates and parameter behavior
 
 - **SAE J670 Z-down:** +X forward, +Y right, +Z down. Dimensions and hardpoints are millimeters. Each axle has a chassis-fixed origin at its nominal static axle station, center plane, and ground datum; it is not the vehicle CG. See the complete [coordinate and sign contract](docs/COORDINATES.md).
@@ -40,12 +48,13 @@ Use the **Dark mode** switch in the top bar to change the full workspace, includ
 
 - `src/coordinates.js`: SAE frame definitions, reflection and alignment signs; `src/migration.js`: versioned import and saved-library conversion.
 - `src/model.js`: versioned design schema, topology definitions, default geometry, validation, presets. This is the single source for geometry and configuration.
+- `src/arb.js`: optional U-bar point definitions, nullable draft coordinates, validation, and completeness checks. ARB points stay separate from the suspension solver's hardpoints.
 - `src/solver.js`: numerical rigid-body position solver, independent from DOM/rendering.
 - `src/viewer.js`: interactive canvas rendering of projected 3D geometry, orbit/zoom, orthographic camera views. No CDN/WebGL dependency.
 - `src/app.js`: editor, state transitions, local persistence, imports/exports.
 - `src/theme.js`: applies the saved appearance before first paint and handles the accessible theme switch.
 - `tests/*.test.mjs`: numerical, migration, physical-pose and schema regressions, run using Node 20+ with `node --test suspension-studio/tests/*.test.mjs` from the repository root.
-- `tests/index.html`: browser-run version of the 40 pure model/solver checks (eight additional fixture regressions run in Node) for environments without Node. Open `/suspension-studio/tests/` through the local server.
+- `tests/index.html`: browser-run version of the 40 pure model/solver checks (eight additional fixture regressions and 11 ARB input checks run in Node) for environments without Node. Open `/suspension-studio/tests/` through the local server.
 
 The application does not execute or reinterpret the legacy dashboard, tire scripts, or Python renderer.
 
@@ -60,7 +69,7 @@ The upright has six pose unknowns: three translations and three rotation-vector 
 
 Newton iteration with numerical Jacobian, partial-pivot elimination, line search, and 4 mm continuation steps searches near the static assembly. A maximum constraint residual above 0.001 mm rejects the result. Motion is limited to ±40 mm in the UI; an impossible pose, singular linkage, or unreachable rocker is reported without inventing a result. The preview returns to static geometry on a failed solve.
 
-Camber and toe outputs are **changes from the static pose**, not absolute alignment angles. The static wheel axis is assumed lateral because the input schema does not yet specify wheel/upright orientation. Camber is positive top-outward; toe is positive inward on either side. Separate SAE steer angles are positive rightward about +Z. Forces, masses, compliance, tire contact, springs rates, damper curves, anti-roll bars, hard stops, collision checks, motion-ratio curves, and dynamic integration are outside this first milestone. These generated hardpoints are illustrative design seeds, not optimized or validated vehicle geometry.
+Camber and toe outputs are **changes from the static pose**, not absolute alignment angles. The static wheel axis is assumed lateral because the input schema does not yet specify wheel/upright orientation. Camber is positive top-outward; toe is positive inward on either side. Separate SAE steer angles are positive rightward about +Z. Forces, masses, compliance, tire contact, springs rates, damper curves, anti-roll-bar dynamics, hard stops, collision checks, motion-ratio curves, and dynamic integration are outside this first milestone. These generated hardpoints are illustrative design seeds, not optimized or validated vehicle geometry.
 
 ## CR26 provenance
 

@@ -1,9 +1,10 @@
 import { mirrorPoint, toDisplay } from './coordinates.js';
-import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.2';
-import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.2';
+import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.3';
+import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.3';
+import {ARB_POINTS,arbComplete} from './arb.js?v=0.2.3';
 const PALETTES={
-  light:{arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af'},
-  dark:{arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3'},
+  light:{arb:'#448272',arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af'},
+  dark:{arb:'#92d4bf',arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3'},
 };
 export class SuspensionViewer {
   constructor(canvas) {
@@ -64,6 +65,15 @@ export class SuspensionViewer {
     }
     const chassis=Object.entries(a.hardpoints).filter(([k])=>!isMoving(k)&&!k.startsWith('rocker_')&&k!=='damper_top');
     for(const [,p] of chassis)line([p,mirrorPoint(p)],colors.chassis,.8,.35);
+    // ARB inputs describe static packaging only, independently of the solved upright.
+    if(a.antiRollBar?.enabled&&arbComplete(a.antiRollBar)) {
+      const left=a.antiRollBar.points,right=Object.fromEntries(Object.entries(left).map(([key,p])=>[key,mirrorPoint(p)]));
+      line([left.arm_tip,left.bend,right.bend,right.arm_tip],colors.arb,3);
+      for(const [side,p] of [['Left',left],['Right',right]]) {
+        line([p.arm_tip,p.link_pickup],colors.arb,1.6);
+        for(const {key,label} of ARB_POINTS)point(p[key],`${side} ARB ${label}`);
+      }
+    }
     objects.sort((a,b)=>a.depth-b.depth).forEach(o=>o.render());
     const axisOrigin=[w-44,h-53];
     for(const [p,label,color] of [[[60,0,0],'X',colors.axisX],[[0,60,0],'Y',colors.axisY],[[0,0,60],'Z',colors.axisZ]]) {

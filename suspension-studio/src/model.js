@@ -1,5 +1,6 @@
 /** Canonical schema v2: SAE J670 Z-down; axle-local hardpoints in mm. */
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
+import { validateAntiRollBar } from './arb.js?v=0.2.3';
 export const TOPOLOGIES = {
   'double-wishbone': { name: 'Double wishbone', solver: 'Wishbone · 5 links' },
   macpherson: { name: 'MacPherson', solver: 'Strut constraint' },
@@ -65,6 +66,7 @@ export function validateDesign(d) {
   number(d.wheelbase,500,10000,'Wheelbase'); number(d.wheelDiameter,200,1500,'Wheel diameter');
   for (const key of ['front','rear']) {
     const a = d.axles[key]; if (!a || !Object.hasOwn(TOPOLOGIES,a.topology)) { errors.push(`${key}: invalid topology.`); continue; }
+    errors.push(...validateAntiRollBar(a.antiRollBar).map(error => `${key}: ${error}`));
     number(a.track,600,3000,`${key} track`); number(a.rackLength,100,2500,`${key} rack length`); number(a.rackTravel,1,300,`${key} rack travel`); number(a.springOD,20,250,`${key} spring OD`); number(a.damperOD,10,200,`${key} damper OD`);
     if (typeof a.steered !== 'boolean') errors.push(`${key}: steering must be true or false.`);
     if (!['pushrod','pullrod','direct'].includes(a.actuation) || a.mounting !== (a.actuation === 'direct' ? 'direct' : 'bell-crank') || a.topology === 'macpherson' && a.actuation !== 'direct') errors.push(`${key}: incompatible actuation and mounting.`);

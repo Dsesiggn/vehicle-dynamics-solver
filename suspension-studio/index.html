@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#692f50"><title>Suspension Studio · Vehicle Dynamics</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
   <script src="./src/theme.js?v=0.2.1"></script>
-  <link rel="stylesheet" href="./src/styles.css?v=0.2.1">
+  <link rel="stylesheet" href="./src/styles.css?v=0.2.3">
 </head>
 <body>
   <aside class="sidebar">
@@ -43,13 +43,21 @@
             <div class="subsection-heading">STEERING <label class="switch-label"><input id="steered" type="checkbox"> Steered axle</label></div>
             <div class="field-grid"><label class="field">Rack length<div class="number-wrap"><input id="rack-length" type="number" min="100" max="2500" step="any"><span>mm</span></div></label><label class="field">Total rack travel<div class="number-wrap"><input id="rack-travel" type="number" min="1" max="300" step="any"><span>mm</span></div></label></div>
             <div class="subsection-heading">SPRING & DAMPER</div><div class="field-grid"><label class="field">Spring outer diameter<div class="number-wrap"><input id="spring-od" type="number" min="20" max="250" step="any"><span>mm</span></div></label><label class="field">Damper outer diameter<div class="number-wrap"><input id="damper-od" type="number" min="10" max="200" step="any"><span>mm</span></div></label></div>
+            <div class="subsection-heading arb-heading">ANTI-ROLL BAR <label class="switch-label"><input id="arb-enabled" type="checkbox" aria-controls="arb-inputs" aria-expanded="false"> U-bar anti-roll bar</label></div>
+            <div id="arb-inputs" hidden>
+              <p class="hint">Enter left-side points in mm: +X forward, +Y right, +Z down. The right side is mirrored across Y = 0. Leave unknown coordinates blank.</p>
+              <div id="arb-point-fields"></div>
+              <p id="arb-status" class="hint" role="status"></p>
+              <p class="hint">Static layout only. The suspension pickup is a reference point; ARB motion, stiffness, and forces are not calculated. Unchecking keeps your entered points.</p>
+            </div>
           </section>
         </div>
         <div class="preview-column">
           <section class="panel viewer-panel"><div class="section-title"><h2>Live geometry preview</h2><span class="live-badge"><span></span> LIVE</span></div>
             <div class="viewer"><canvas id="scene" tabindex="0" aria-label="Interactive 3D suspension. Drag to orbit, scroll to zoom. Use arrow keys to rotate and plus or minus to zoom."></canvas><div class="viewer-title"><span id="viewer-axle">FRONT AXLE</span><strong id="viewer-topology">Double wishbone</strong><small id="viewer-detail">Pushrod · Bell crank</small></div><div class="view-buttons" aria-label="Camera view"><button data-view="iso" aria-pressed="true">ISO</button><button data-view="front" aria-pressed="false">Front</button><button data-view="top" aria-pressed="false">Top</button><button id="reset-view" aria-label="Reset camera">↺</button></div><div class="viewer-bottom"><span>↔ Drag to orbit <i>·</i> Scroll to zoom</span><label><input id="show-labels" type="checkbox"> Labels</label></div></div>
-            <div class="legend"><span><i class="arm"></i> Control arms</span><span><i class="actuator"></i> Actuation</span><span><i class="steering"></i> Steering / toe link</span><span><i class="point"></i> Hardpoints</span></div>
-            <div class="preview-stats"><div><small>TRACK WIDTH</small><strong id="stat-track"></strong></div><div><small>HARDPOINTS / SIDE</small><strong id="stat-points"></strong></div><div><small>TOPOLOGY</small><strong id="stat-solver"></strong></div></div>
+            <div class="legend"><span><i class="arm"></i> Control arms</span><span><i class="actuator"></i> Actuation</span><span><i class="steering"></i> Steering / toe link</span><span><i class="point"></i> Hardpoints</span><span id="arb-legend" hidden><i class="arb"></i> U-bar ARB (static)</span></div>
+            <p id="arb-viewer-note" class="hint arb-viewer-note" hidden></p>
+            <div class="preview-stats"><div><small>TRACK WIDTH</small><strong id="stat-track"></strong></div><div><small>SUSPENSION POINTS / SIDE</small><strong id="stat-points"></strong></div><div><small>TOPOLOGY</small><strong id="stat-solver"></strong></div></div>
           </section>
           <section class="panel summary-panel"><div class="section-title"><h2>Design overview</h2><span class="small">2 axles</span></div><div id="axle-summary"></div><div class="info-note"><span>ⓘ</span><p>Each axle defines its own hardpoints, kinematic constraints, and 3D geometry. SAE J670 Z-down: +X forward, +Y right, +Z down. Left-side hardpoints (Y &lt; 0) are mirrored across Y = 0.</p></div></section>
           <div class="next-card"><div><span class="eyebrow">NEXT IN YOUR WORKFLOW</span><h3>Give your geometry a starting point.</h3><p>Review and refine the generated hardpoints.</p></div><button class="button primary" id="edit-hardpoints">Define hardpoints <span>→</span></button></div>
@@ -62,5 +70,5 @@
   </div>
   <dialog id="library"><div class="dialog-heading"><div><span class="eyebrow">DESIGN LIBRARY</span><h2>Choose your starting point.</h2></div><button id="close-library" class="icon-button" aria-label="Close design library">×</button></div><p class="hint">Opening a design replaces the current draft. Save your changes first.</p><div id="presets"></div><h3 class="library-subtitle">Saved in this browser</h3><div id="saved-designs"></div><label class="button subtle import-label">↑ Import design JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label><p id="library-error" role="alert"></p></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./src/app.js?v=0.2.2"></script>
+  <script type="module" src="./src/app.js?v=0.2.3"></script>
 </body></html>

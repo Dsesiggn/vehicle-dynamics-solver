@@ -1,7 +1,8 @@
-import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.2';
-import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel} from './model.js?v=0.2.2';
-import {solveAxle} from './solver.js?v=0.2.2';
-import {SuspensionViewer} from './viewer.js?v=0.2.2';
+import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.3';
+import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel} from './model.js?v=0.2.3';
+import {solveAxle} from './solver.js?v=0.2.3';
+import {SuspensionViewer} from './viewer.js?v=0.2.3';
+import {ARB_POINTS,newAntiRollBar,arbComplete} from './arb.js?v=0.2.3';
 const $=id=>document.getElementById(id);
 let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,toastTimer,dirty=false;
 try {
@@ -25,6 +26,13 @@ function fields() {
   document.querySelectorAll('[data-axle]').forEach(b=>b.setAttribute('aria-selected',b.dataset.axle===active));
   document.querySelectorAll('[data-topology]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.topology===a.topology));
   $('steer').min=-a.rackTravel/2;$('steer').max=a.rackTravel/2;$('steer').step=.5;$('steer').disabled=!a.steered;
+  renderARB();
+}
+function renderARB() {
+  const arb=design.axles[active].antiRollBar,enabled=arb?.enabled===true;
+  $('arb-enabled').checked=enabled;$('arb-enabled').setAttribute('aria-expanded',String(enabled));
+  $('arb-inputs').hidden=!enabled;
+  $('arb-point-fields').innerHTML=enabled?ARB_POINTS.map(({key,label,description})=>`<fieldset class="arb-point"><legend>${label}</legend><p class="hint">${description}</p><div class="arb-coordinates">${'XYZ'.split('').map((axis,i)=>`<label class="field">${axis}<input type="number" step="any" min="-10000" max="${i===1?0:10000}" value="${arb.points[key][i]??''}" placeholder="mm" data-arb-point="${key}" data-axis="${i}" aria-label="ARB ${label} ${axis}"></label>`).join('')}</div></fieldset>`).join(''):'';
 }
 function update() {
   const a=design.axles[active],errors=validateDesign(design),result=errors.length?null:solveAxle(a,bump,rack);
@@ -32,12 +40,19 @@ function update() {
   $('viewer-axle').textContent=`${active.toUpperCase()} AXLE`;$('viewer-topology').textContent=TOPOLOGIES[a.topology].name;$('viewer-detail').textContent=`${title(a.actuation)} · ${title(a.mounting)}`;
   $('stat-track').innerHTML=`${a.track.toLocaleString(undefined,{maximumFractionDigits:1})} <span>mm</span>`;
   $('stat-points').textContent=Object.keys(a.hardpoints).length;$('stat-solver').textContent=TOPOLOGIES[a.topology].solver;
+  const arbEnabled=a.antiRollBar?.enabled===true,arbReady=arbComplete(a.antiRollBar);
+  const invalidArb=[...$('arb-point-fields').querySelectorAll('input')].find(input=>!input.validity.valid);
+  $('arb-status').classList.toggle('error',!!invalidArb);
+  $('arb-status').textContent=invalidArb?'Use coordinates from −10000 to 10000 mm; left-side Y must be zero or negative.':arbReady?'All ARB points entered.':'Enter all four XYZ points to display the U-bar. Incomplete points can be saved.';
+  $('arb-legend').hidden=!arbEnabled||!arbReady;
+  $('arb-viewer-note').hidden=!arbEnabled;
+  $('arb-viewer-note').textContent=arbReady?'U-bar ARB · static reference, including during bump and steering.':'U-bar ARB · enter all four XYZ points to preview.';
   $('axle-summary').innerHTML=Object.entries(design.axles).map(([name,axle])=>`<div class="summary-row"><span class="axle-icon">${name==='front'?'F':'R'}</span><div><strong>${title(name)} axle · ${TOPOLOGIES[axle.topology].name}</strong><small>${title(axle.actuation)} / ${title(axle.mounting)} · ${axle.steered?'Steered':'Fixed toe links'}</small></div><span>${Number(axle.track.toFixed(1))} mm</span></div>`).join('');
   $('bump-value').textContent=`${bump} mm`;$('steer-value').textContent=`${rack} mm`;
   if(errors.length) $('solver-results').innerHTML=`<p class="solver-status error">${errors.map(escape).join('<br>')}</p>`;
   else if(!result.ok) $('solver-results').innerHTML=`<p class="solver-status error">${escape(result.left.reason||result.right.reason)} Showing static geometry.</p>`;
   else $('solver-results').innerHTML=`<div class="solver-metrics"><span>Left Δ camber <strong>${result.left.camber.toFixed(2)}°</strong></span><span>Left Δ toe-in <strong>${result.left.toe.toFixed(2)}°</strong></span><span>Right Δ toe-in <strong>${result.right.toe.toFixed(2)}°</strong></span><span>Left / right steer <strong>${result.left.steer.toFixed(2)}° / ${result.right.steer.toFixed(2)}°</strong></span><span>Left damper compression <strong>${result.left.compression.toFixed(2)} mm</strong></span></div><p class="solver-status">● Position solved · maximum constraint residual ${Math.max(result.left.error,result.right.error).toFixed(5)} mm</p>`;
-  const invalidField=[...document.querySelectorAll('input[type=number]')].some(input=>input.value===''||!input.checkValidity());
+  const invalidField=[...document.querySelectorAll('input[type=number]')].some(input=>!input.disabled&&(!input.dataset.arbPoint&&input.value===''||!input.checkValidity()));
   $('save').disabled=!storageReadable||errors.length>0||invalidField;$('export').disabled=errors.length>0||invalidField;
   if(!$('hardpoints-panel').hidden && !document.activeElement?.dataset.point) renderHardpoints();
 }
@@ -66,12 +81,24 @@ for(const [id,key] of Object.entries({'track':'track','rack-length':'rackLength'
   if(key==='track')$('rack-length').value=Number(a.rackLength.toFixed(3));
 });
 $('steered').addEventListener('change',()=>{design.axles[active].steered=$('steered').checked;resetMotion();markDirty();fields();update();});
+$('arb-enabled').addEventListener('change',()=>{
+  const a=design.axles[active];a.antiRollBar??=newAntiRollBar();a.antiRollBar.enabled=$('arb-enabled').checked;
+  markDirty();renderARB();update();
+});
+$('arb-point-fields').addEventListener('input',e=>{
+  const input=e.target;if(!input.dataset.arbPoint)return;
+  if(!input.checkValidity()){update();return;}
+  const arb=design.axles[active].antiRollBar;
+  arb.points[input.dataset.arbPoint][Number(input.dataset.axis)]=input.value===''?null:Number(input.value);
+  markDirty();update();
+});
 $('design-name').addEventListener('input',()=>{design.name=$('design-name').value;markDirty();update();});
 $('wheelbase').addEventListener('input',()=>{if(!validInput($('wheelbase')))return;design.wheelbase=Number($('wheelbase').value);markDirty();update();});
 $('wheel-diameter').addEventListener('input',()=>{
   if(!validInput($('wheel-diameter')))return;const diameter=Number($('wheel-diameter').value),dz=(diameter-design.wheelDiameter)/2;
   for(const a of Object.values(design.axles))for(const p of Object.values(a.hardpoints))p[2]-=dz;
-  design.wheelDiameter=diameter;resetMotion();markDirty();update();
+  for(const a of Object.values(design.axles))if(a.antiRollBar)for(const p of Object.values(a.antiRollBar.points))if(p[2]!==null)p[2]-=dz;
+  design.wheelDiameter=diameter;resetMotion();markDirty();renderARB();update();
 });
 $('hardpoint-rows').addEventListener('input',e=>{
   const input=e.target;if(!input.dataset.point||!validInput(input))return;
