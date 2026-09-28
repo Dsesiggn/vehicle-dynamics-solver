@@ -1,7 +1,7 @@
-import { importDesign, readLibrary, STORAGE } from './migration.js';
-import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving} from './model.js';
-import {solveAxle} from './solver.js';
-import {SuspensionViewer} from './viewer.js?v=0.2.1';
+import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.2';
+import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel} from './model.js?v=0.2.2';
+import {solveAxle} from './solver.js?v=0.2.2';
+import {SuspensionViewer} from './viewer.js?v=0.2.2';
 const $=id=>document.getElementById(id);
 let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,toastTimer,dirty=false;
 try {
@@ -43,7 +43,7 @@ function update() {
 }
 function renderHardpoints() {
   $('hardpoint-axle').textContent=`/ ${title(active)} axle`;
-  $('hardpoint-rows').innerHTML=Object.entries(design.axles[active].hardpoints).map(([key,xyz])=>`<tr><td>${title(key.replaceAll('_',' '))}</td>${xyz.map((n,i)=>`<td><input type="number" step="0.01" min="-10000" max="10000" value="${Number(n.toFixed(2))}" data-point="${key}" data-axis="${i}" aria-label="${key} ${'XYZ'[i]}"></td>`).join('')}<td>${isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
+  $('hardpoint-rows').innerHTML=Object.entries(design.axles[active].hardpoints).map(([key,xyz])=>`<tr><td>${hardpointLabel(key)}</td>${xyz.map((n,i)=>`<td><input type="number" step="0.01" min="-10000" max="10000" value="${Number(n.toFixed(2))}" data-point="${key}" data-axis="${i}" aria-label="${hardpointLabel(key)} ${'XYZ'[i]}"></td>`).join('')}<td>${isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
 }
 function reveal(panel) {
   $(panel).hidden=false;if(panel==='hardpoints-panel')renderHardpoints();$(panel).scrollIntoView({behavior:'smooth',block:'start'});

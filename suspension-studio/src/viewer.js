@@ -1,6 +1,6 @@
 import { mirrorPoint, toDisplay } from './coordinates.js';
-import {linkPairs,isMoving} from './model.js';
-import {add,sub,scale,unit,cross,rotate} from './solver.js';
+import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.2';
+import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.2';
 const PALETTES={
   light:{arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af'},
   dark:{arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3'},
@@ -60,7 +60,7 @@ export class SuspensionViewer {
       cylinder(add(wc,scale(wheelAxis,-65)),add(wc,scale(wheelAxis,65)),this.diameter/2,colors.tire);
       cylinder(add(wc,scale(wheelAxis,-50)),add(wc,scale(wheelAxis,50)),this.diameter*.28,colors.rim);
       line([add(wc,scale(wheelAxis,-85)),add(wc,scale(wheelAxis,85))],colors.upright,1);
-      for(const [key,value] of Object.entries(p))point(value,key.replaceAll('_',' '));
+      for(const [key,value] of Object.entries(p))point(value,hardpointLabel(key));
     }
     const chassis=Object.entries(a.hardpoints).filter(([k])=>!isMoving(k)&&!k.startsWith('rocker_')&&k!=='damper_top');
     for(const [,p] of chassis)line([p,mirrorPoint(p)],colors.chassis,.8,.35);

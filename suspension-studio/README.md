@@ -28,6 +28,7 @@ Use the **Dark mode** switch in the top bar to change the full workspace, includ
 ## Coordinates and parameter behavior
 
 - **SAE J670 Z-down:** +X forward, +Y right, +Z down. Dimensions and hardpoints are millimeters. Each axle has a chassis-fixed origin at its nominal static axle station, center plane, and ground datum; it is not the vehicle CG. See the complete [coordinate and sign contract](docs/COORDINATES.md).
+- Control-arm hardpoints use **fore** and **aft** in the editor, viewer labels, and validation messages, including multi-link arms. Fore means toward +X (forward); aft means toward −X (rearward), relative to the other arm attachment. These names do not require either point to have a particular coordinate sign. Existing v1/v2 JSON identifiers retain `_front`/`_rear` for saved-design compatibility.
 - Enter left-side hardpoints (negative Y). Right geometry is mirrored about Y = 0. Both solved corners are returned in the same SAE frame.
 - Track is wheel-center to wheel-center. Changing track scales Y coordinates, including rack length. Editing wheel-center or rack-inner Y updates the corresponding dimension; these left coordinates equal negative half the dimension.
 - Increasing wheel diameter moves all points toward negative Z by the radius difference. Wheelbase is stored for future vehicle assembly; the rear datum will be at X = −wheelbase relative to the front datum. It does not alter this isolated axle preview.

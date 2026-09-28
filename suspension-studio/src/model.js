@@ -7,6 +7,12 @@ export const TOPOLOGIES = {
 };
 export const clone = value => structuredClone(value);
 export const title = value => value.replaceAll('-', ' ').replace(/^./, c => c.toUpperCase());
+// Display terminology is separate from stable v1/v2 JSON hardpoint identifiers.
+export function hardpointLabel(key) {
+  return title(key.replace(/^(lca|uca|lower|upper)_(front|rear)(?=_|$)/,
+    (_, arm, end) => `${arm}_${end === 'front' ? 'fore' : 'aft'}`)
+    .replaceAll('_', ' ').replace(/^(lca|uca)\b/, arm => arm.toUpperCase()));
+}
 export function axle(topology = 'double-wishbone', track = 1200, steered = true) {
   const a = { topology, track, steered, actuation: topology === 'macpherson' ? 'direct' : 'pushrod', mounting: topology === 'macpherson' ? 'direct' : 'bell-crank', rackLength: 440, rackTravel: 60, springOD: 65, damperOD: 40, hardpoints: {} };
   a.hardpoints = generatePoints(a, 460); return a;
@@ -68,14 +74,14 @@ export function validateDesign(d) {
     if (!a.hardpoints || typeof a.hardpoints !== 'object') { errors.push(`${key}: missing hardpoints.`); continue; }
     let invalidCoordinates = false;
     for (const k of Object.keys(required)) {
-      const p = a.hardpoints[k]; if (!Array.isArray(p) || p.length !== 3 || !p.every(n => Number.isFinite(n) && Math.abs(n) <= 10000)) { errors.push(`${key}: invalid ${k} coordinates.`); invalidCoordinates = true; }
+      const p = a.hardpoints[k]; if (!Array.isArray(p) || p.length !== 3 || !p.every(n => Number.isFinite(n) && Math.abs(n) <= 10000)) { errors.push(`${key}: invalid ${hardpointLabel(k)} coordinates.`); invalidCoordinates = true; }
     }
     if (Object.keys(a.hardpoints).some(k => !Object.hasOwn(required,k))) errors.push(`${key}: unexpected hardpoints for topology.`);
     if (invalidCoordinates) continue;
     const wc = a.hardpoints.wheel_center, rack = a.hardpoints.tie_rod_inner;
     if (wc && Math.abs(-wc[1] * 2 - a.track) > .1) errors.push(`${key}: left wheel center Y must equal negative half the track width.`);
     if (rack && Math.abs(-rack[1] * 2 - a.rackLength) > .1) errors.push(`${key}: left rack inner Y must equal negative half the rack length.`);
-    for (const [i,o] of linkPairs(a)) if (a.hardpoints[i] && a.hardpoints[o] && Math.hypot(...a.hardpoints[i].map((v,j)=>v-a.hardpoints[o][j])) < 1) errors.push(`${key}: ${i} link is degenerate.`);
+    for (const [i,o] of linkPairs(a)) if (a.hardpoints[i] && a.hardpoints[o] && Math.hypot(...a.hardpoints[i].map((v,j)=>v-a.hardpoints[o][j])) < 1) errors.push(`${key}: ${hardpointLabel(i)} link is degenerate.`);
   }
   return errors;
 }

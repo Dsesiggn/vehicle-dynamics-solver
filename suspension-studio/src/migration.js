@@ -1,4 +1,4 @@
-import { clone, validateDesign } from './model.js';
+import { clone, validateDesign, hardpointLabel } from './model.js?v=0.2.2';
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
 
 /** Pure, non-mutating import boundary. Never infer axes from coordinate signs. */
@@ -11,7 +11,7 @@ export function importDesign(value) {
     for (const a of Object.values(design.axles || {})) {
       if (!a?.hardpoints || typeof a.hardpoints !== 'object') throw Error('Version 1 design has missing hardpoints.');
       for (const [key, point] of Object.entries(a.hardpoints)) {
-        if (!Array.isArray(point) || point.length !== 3 || !point.every(Number.isFinite)) throw Error(`Invalid version 1 ${key} coordinates.`);
+        if (!Array.isArray(point) || point.length !== 3 || !point.every(Number.isFinite)) throw Error(`Invalid version 1 ${hardpointLabel(key)} coordinates.`);
         a.hardpoints[key] = legacyToSAE(point);
       }
     }

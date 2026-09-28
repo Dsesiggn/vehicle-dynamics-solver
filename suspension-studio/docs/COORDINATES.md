@@ -58,7 +58,7 @@ New JSON includes:
 
 These metadata are required. Unknown coordinate systems, frames, units, or schema versions are rejected instead of guessed. Importing an existing v2 file never converts its coordinates again.
 
-Original Studio v1 JSON is recognized by version 1 with no coordinate metadata. It used lateral-left X, longitudinal-rearward Y (front pivot Y < rear pivot Y), and Z-up. Every hardpoint is converted once:
+Original Studio v1 JSON is recognized by version 1 with no coordinate metadata. It used lateral-left X, longitudinal-rearward Y (fore pivot Y < aft pivot Y), and Z-up. Every hardpoint is converted once:
 
 ```text
 [X_SAE, Y_SAE, Z_SAE] = [-Y_v1, -X_v1, -Z_v1]
