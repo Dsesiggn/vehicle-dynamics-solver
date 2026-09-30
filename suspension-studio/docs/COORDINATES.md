@@ -14,7 +14,9 @@ Each axle has a chassis-fixed design frame. Its origin is the intersection of th
 - Left-to-right reflection of a position/free vector: `[X, -Y, Z]`.
 - Reflection of an axial vector (rotation, angular velocity, moment): `[-Rx, Ry, -Rz]`.
 
-A future vehicle assembly anchored at the front datum will place the rear datum at `[-wheelbase, 0, 0]`, assuming no reference pitch or relative datum height. A CG-based dynamics frame will need an explicit translation and any required rotation from that assembly frame. Wheelbase is currently stored but the viewer shows one axle at a time.
+A future vehicle assembly anchored at the front datum will place the rear datum at `[-wheelbase, 0, 0]`, assuming no reference pitch or relative datum height. A CG-based dynamics frame will need an explicit translation and any required rotation from that assembly frame. The obstacle preview uses that same stated flat-frame assumption to show shared packaging envelopes from either axle view: for an obstacle point entered in reference axle frame `r`, `X_active = X_r + (I_active,rear − I_r,rear) × wheelbase`, where `I` is 1 for rear and 0 for front. Y and Z are unchanged. This is a display transform only; it does not infer body pitch or a vertical datum offset.
+
+Optional engine and differential envelopes are axis-aligned boxes described by center `[X,Y,Z]` and length, width and height. The optional cockpit envelope is a trapezoid in the Y–Z cross-section, extruded along X by its depth. For cockpit height `H` and center Z `Zc`, the top and bottom are at `Zc − H/2` and `Zc + H/2`; their half-widths are `topWidth/2` and `bottomWidth/2`. This follows the project sign convention that top is toward negative Z. These shapes are user-entered visualization envelopes, not vehicle-specific measured geometry, and are not used in the suspension equations or clearance checks.
 
 ## Inputs and outputs
 
@@ -55,6 +57,8 @@ New JSON includes:
   "lengthUnit": "mm"
 }
 ```
+
+Schema v2 may omit the optional top-level `obstacles` field for older designs. If present, it stores optional static engine, differential, and cockpit envelopes in SAE J670 Z-down axle-local millimeters. Incomplete centers/dimensions are `null` until entered; v1 obstacle fields are rejected because their coordinate meaning is unspecified.
 
 These metadata are required. Unknown coordinate systems, frames, units, or schema versions are rejected instead of guessed. Importing an existing v2 file never converts its coordinates again.
 

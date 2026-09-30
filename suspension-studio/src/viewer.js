@@ -1,14 +1,15 @@
 import { mirrorPoint, toDisplay } from './coordinates.js';
-import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.3';
+import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.4';
 import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.3';
 import {ARB_POINTS,arbComplete} from './arb.js?v=0.2.3';
+import {OBSTACLE_TYPES,obstacleMesh} from './obstacles.js?v=0.2.4';
 const PALETTES={
-  light:{arb:'#448272',arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af'},
-  dark:{arb:'#92d4bf',arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3'},
+  light:{arb:'#448272',arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af',engine:'#b57a2a',differential:'#39769b',cockpit:'#80558e'},
+  dark:{arb:'#92d4bf',arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3',engine:'#f0bd70',differential:'#82c8eb',cockpit:'#d5a6e7'},
 };
 export class SuspensionViewer {
   constructor(canvas) {
-    this.canvas=canvas;this.ctx=canvas.getContext('2d');this.yaw=-.48;this.pitch=.32;this.zoom=1;this.labels=false;
+    this.canvas=canvas;this.ctx=canvas.getContext('2d');this.yaw=-.48;this.pitch=.32;this.zoom=1;this.labels=false;this.fitMode=false;this.visibleObstacleKeys=new Set();
     new ResizeObserver(()=>this.draw()).observe(canvas);
     canvas.addEventListener('pointerdown',e=>{this.drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId);});
     canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw+=(e.clientX-this.drag[0])*.007;this.pitch=Math.max(-1.5,Math.min(1.5,this.pitch+(e.clientY-this.drag[1])*.007));this.drag=[e.clientX,e.clientY];this.draw();});
@@ -16,15 +17,41 @@ export class SuspensionViewer {
     canvas.addEventListener('wheel',e=>{e.preventDefault();this.zoom=Math.max(.5,Math.min(2.5,this.zoom*Math.exp(-e.deltaY*.001)));this.draw();},{passive:false});
     canvas.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','-','='].includes(e.key))return;e.preventDefault();if(e.key==='ArrowLeft')this.yaw-=.12;if(e.key==='ArrowRight')this.yaw+=.12;if(e.key==='ArrowUp')this.pitch=Math.min(1.5,this.pitch+.1);if(e.key==='ArrowDown')this.pitch=Math.max(-1.5,this.pitch-.1);if(e.key==='+'||e.key==='=')this.zoom=Math.min(2.5,this.zoom*1.1);if(e.key==='-')this.zoom=Math.max(.5,this.zoom/1.1);this.draw();});
   }
-  view(name) {this.yaw=name==='iso'?-.48:0;this.pitch=name==='top'?Math.PI/2:name==='front'?0:.32;this.zoom=1;this.draw();}
-  update(a,diameter,motion=null) {this.axle=a;this.diameter=diameter;this.motion=motion;this.draw();}
+  view(name) {this.yaw=name==='iso'?-.48:0;this.pitch=name==='top'?Math.PI/2:name==='front'?0:.32;this.zoom=1;this.fitMode=false;this.draw();}
+  fitAll() {this.fitMode=true;this.zoom=1;this.draw();}
+  update(a,diameter,motion=null,context={}) {
+    this.axle=a;this.diameter=diameter;this.motion=motion;this.context=context;
+    const current=new Set(OBSTACLE_TYPES.filter(({key})=>context.obstacles?.[key]?.visible&&obstacleMesh(context.obstacles[key],key,context.activeAxle,context.wheelbase)).map(({key})=>key));
+    if([...current].some(key=>!this.visibleObstacleKeys.has(key))||this.lastAxle&&this.lastAxle!==context.activeAxle&&current.size){this.fitMode=true;this.zoom=1;}
+    this.lastAxle=context.activeAxle;
+    this.visibleObstacleKeys=current;this.draw();
+  }
   draw() {
     if(!this.axle)return;
     const colors=PALETTES[document.documentElement.dataset.theme]||PALETTES.light;
     const c=this.ctx,canvas=this.canvas,rect=canvas.getBoundingClientRect(),w=rect.width,h=rect.height,dpr=window.devicePixelRatio||1;
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
-    const a=this.axle,s=Math.min(w/(a.track+this.diameter*.5+180),h/(this.diameter+350))*this.zoom;
-    const project=point=>{const p=toDisplay(point),x=p[0]*Math.cos(this.yaw)-p[1]*Math.sin(this.yaw),depth=p[0]*Math.sin(this.yaw)+p[1]*Math.cos(this.yaw);return [w/2+x*s,h*.64-(p[2]-this.diameter*.3)*s*Math.cos(this.pitch)+depth*s*Math.sin(this.pitch),depth*Math.cos(this.pitch)+p[2]*Math.sin(this.pitch)];};
+    const a=this.axle;
+    const obstacleMeshes=OBSTACLE_TYPES.map(({key,label})=>({key,label,mesh:obstacleMesh(this.context?.obstacles?.[key],key,this.context?.activeAxle,this.context?.wheelbase)})).filter(item=>item.mesh);
+    const obstacleVertices=obstacleMeshes.flatMap(item=>item.mesh.vertices);
+    const localPoints=[];
+    for(const side of [-1,1]) {
+      const solved=this.motion?.ok?(side===-1?this.motion.left:this.motion.right):null;
+      const points=solved?.points||Object.fromEntries(Object.entries(a.hardpoints).map(([key,value])=>[key,side===-1?value:mirrorPoint(value)]));
+      localPoints.push(...Object.values(points));
+      const wheel=points.wheel_center,radius=this.diameter/2+85;
+      for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])localPoints.push(add(wheel,[x*radius,y*radius,z*radius]));
+    }
+    if(a.antiRollBar?.enabled&&arbComplete(a.antiRollBar))for(const p of Object.values(a.antiRollBar.points))localPoints.push(p,mirrorPoint(p));
+    const projectBasis=point=>{const p=toDisplay(point),x=p[0]*Math.cos(this.yaw)-p[1]*Math.sin(this.yaw),depth=p[0]*Math.sin(this.yaw)+p[1]*Math.cos(this.yaw);return [x,(p[2]-this.diameter*.3)*Math.cos(this.pitch)-depth*Math.sin(this.pitch),depth*Math.cos(this.pitch)+p[2]*Math.sin(this.pitch)];};
+    let s=Math.min(w/(a.track+this.diameter*.5+180),h/(this.diameter+350))*this.zoom,centerX=0,centerVertical=0,screenCenterY=h*.64;
+    if(this.fitMode) {
+      const bounds=[...localPoints,...obstacleVertices].map(projectBasis),xs=bounds.map(p=>p[0]),ys=bounds.map(p=>p[1]);
+      const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),spanX=Math.max(1,maxX-minX),spanY=Math.max(1,maxY-minY);
+      s=Math.min(Math.max(80,w-64)/spanX,Math.max(80,h-112)/spanY)*this.zoom;
+      centerX=(minX+maxX)/2;centerVertical=(minY+maxY)/2;screenCenterY=h*.54;
+    }
+    const project=point=>{const [x,vertical,depth]=projectBasis(point);return [w/2+(x-centerX)*s,screenCenterY-(vertical-centerVertical)*s,depth];};
     const drawLine=(points,color,width=1,alpha=1,dash=[])=>{c.beginPath();points.forEach((p,i)=>{const [x,y]=project(p);i?c.lineTo(x,y):c.moveTo(x,y);});c.strokeStyle=color;c.globalAlpha=alpha;c.lineWidth=width;c.setLineDash(dash);c.stroke();c.setLineDash([]);c.globalAlpha=1;};
     for(let x=-2000;x<=2000;x+=100)drawLine([[-900,x,0],[900,x,0]],colors.grid,.6,.3);
     for(let y=-900;y<=900;y+=100)drawLine([[y,-2000,0],[y,2000,0]],colors.grid,.6,.3);
@@ -73,6 +100,18 @@ export class SuspensionViewer {
         line([p.arm_tip,p.link_pickup],colors.arb,1.6);
         for(const {key,label} of ARB_POINTS)point(p[key],`${side} ARB ${label}`);
       }
+    }
+    for(const {key,label,mesh} of obstacleMeshes) {
+      const fill=`${colors[key]}`;
+      for(const face of mesh.faces) {
+        const points=face.map(index=>mesh.vertices[index]);
+        objects.push({depth:points.reduce((sum,p)=>sum+project(p)[2],0)/points.length,render:()=>{
+          const screen=points.map(project);c.beginPath();screen.forEach(([x,y],index)=>index?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.globalAlpha=.18;c.fillStyle=fill;c.fill();c.globalAlpha=.5;c.strokeStyle=fill;c.lineWidth=.8;c.stroke();c.globalAlpha=1;
+        }});
+      }
+      for(const [from,to] of mesh.edges)line([mesh.vertices[from],mesh.vertices[to]],fill,1.45,.9);
+      const center=mesh.vertices.reduce((sum,p)=>add(sum,scale(p,1/mesh.vertices.length)),[0,0,0]);
+      if(this.labels)objects.push({depth:project(center)[2]+2,render:()=>{const [x,y]=project(center);c.fillStyle=colors.label;c.font='10px system-ui';c.fillText(label,x+5,y-5);}});
     }
     objects.sort((a,b)=>a.depth-b.depth).forEach(o=>o.render());
     const axisOrigin=[w-44,h-53];

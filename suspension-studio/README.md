@@ -19,7 +19,8 @@ Open http://127.0.0.1:8765/suspension-studio/ in a modern browser. ES modules re
 3. Choose double wishbone, MacPherson, or five-link suspension. Pushrod and pullrod require a bell crank; direct actuation uses direct mounting. MacPherson requires a direct strut.
 4. Open **Define hardpoints** to edit the generated geometry. Changes to topology or actuation regenerate that axle, with confirmation for customized geometry.
 5. Open **Explore kinematics** to solve wheel bump and rack displacement. The preview shows the solved axle, or the static geometry with an explicit failure message when no solution is found.
-6. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Data does not leave the browser.
+6. Optionally enter engine, differential, and cockpit packaging envelopes. Check **Show in preview** to draw a translucent static shape, or use **Fit all** to frame the suspension and visible envelopes.
+7. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Data does not leave the browser.
 
 ## Appearance
 
@@ -32,6 +33,14 @@ Enable **U-bar anti-roll bar** under the selected axle's configuration to enter 
 The first layout is symmetric: each right-side point is `[X, -Y, Z]`. Once all coordinates are entered, the viewer draws a straight transverse section between the mirrored bends, arms from bends to lever tips, and links from tips to suspension pickups. Bearing centers are markers; for a straight transverse shaft, their X and Z should match the bends. This is a static packaging reference, including during bump/steering. It does not establish mechanical feasibility, assume which suspension body carries the pickup, or calculate ARB rotation, twist, stiffness, forces, bend radii, or clearances. The four-point representation is an implementation choice; reference passages are recorded in [the reference library](docs/REFERENCES.md#u-bar-input-and-static-layout-reference).
 
 ARB coordinates are retained when changing track, topology, actuation, or resetting suspension hardpoints; review the ARB layout after such changes. A wheel-diameter change shifts every entered ARB Z by `−Δdiameter/2`, consistently with the suspension's ground datum adjustment; blank Z values stay blank. JSON schema v2 accepts an optional `axles.front/rear.antiRollBar` object (`type`, `enabled`, `points`). Existing files without it remain compatible. ARB extensions on v1 files are rejected because that historical format did not define ARB coordinate semantics.
+
+## Obstacle geometry
+
+The shared vehicle-level panel accepts an axis-aligned box for engine and differential envelopes (center X/Y/Z plus length/width/height) and a cockpit trapezoid (center X/Y/Z plus depth, top width, bottom width, and height). The cockpit cross-section lies in Y–Z and is extruded along X; equal top and bottom widths form a rectangle. All dimensions are in millimeters. Coordinate centers use SAE J670 Z-down: +X forward, +Y right, +Z down. The controls start blank; no engine, differential, or cockpit dimensions are inferred.
+
+Each shape has a **Coordinate reference axle** selector. Switching between axle previews converts X using the documented flat vehicle-frame assumption: `X_active = X_entered + (I_active,rear − I_reference,rear) × wheelbase`, with `I=1` for rear and `I=0` for front. Thus, a front-referenced center's local X increases by `wheelbase` when shown from the rear datum; a rear-referenced center shifts by the opposite amount in the front view. Y and Z do not change because current assembly axes are parallel and have no vertical offset. This is a rendering transform, not a suspension calculation.
+
+Unchecking an envelope retains its inputs. Blank fields represent unknown draft values and can be saved, but a visible incomplete envelope is not drawn. Changing wheel diameter shifts each entered obstacle center Z by `−Δdiameter/2`, matching the existing ground-datum adjustment for suspension hardpoints; dimensions do not scale when track width changes. These simple shapes stay fixed during bump and steering. They do not detect interference, calculate clearance, or constrain hardpoint entry. Their shape and field definitions are application choices, not equations sourced from the vehicle dynamics references. Existing v2 JSON may omit the optional top-level `obstacles` collection; once present it contains engine, differential, and cockpit records. Version 1 obstacle data is rejected because v1 does not identify a coordinate frame for it.
 
 ## Coordinates and parameter behavior
 
@@ -49,6 +58,7 @@ ARB coordinates are retained when changing track, topology, actuation, or resett
 - `src/coordinates.js`: SAE frame definitions, reflection and alignment signs; `src/migration.js`: versioned import and saved-library conversion.
 - `src/model.js`: versioned design schema, topology definitions, default geometry, validation, presets. This is the single source for geometry and configuration.
 - `src/arb.js`: optional U-bar point definitions, nullable draft coordinates, validation, and completeness checks. ARB points stay separate from the suspension solver's hardpoints.
+- `src/obstacles.js`: optional packaging-envelope dimensions, nullable drafts, axle-datum conversion, and simple box/trapezoid mesh vertices. These remain independent of the suspension solver.
 - `src/solver.js`: numerical rigid-body position solver, independent from DOM/rendering.
 - `src/viewer.js`: interactive canvas rendering of projected 3D geometry, orbit/zoom, orthographic camera views. No CDN/WebGL dependency.
 - `src/app.js`: editor, state transitions, local persistence, imports/exports.

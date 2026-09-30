@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#692f50"><title>Suspension Studio · Vehicle Dynamics</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
   <script src="./src/theme.js?v=0.2.1"></script>
-  <link rel="stylesheet" href="./src/styles.css?v=0.2.3">
+  <link rel="stylesheet" href="./src/styles.css?v=0.2.4">
 </head>
 <body>
   <aside class="sidebar">
@@ -51,12 +51,18 @@
               <p class="hint">Static layout only. The suspension pickup is a reference point; ARB motion, stiffness, and forces are not calculated. Unchecking keeps your entered points.</p>
             </div>
           </section>
+          <section class="panel obstacle-panel" aria-labelledby="obstacle-heading"><div class="section-title"><div><h2 id="obstacle-heading"><span>03</span> Obstacle geometry</h2><p class="hint">Optional engine, differential, and cockpit envelopes for the live preview.</p></div><span class="unit-badge">mm</span></div>
+            <p class="hint obstacle-intro">Use +X forward, +Y right, and +Z down. Enter centers relative to the selected axle datum. The engine and differential use boxes; the cockpit is a trapezoid in the Y–Z section extruded along X, with equal top and bottom widths for a rectangle. The other axle view shifts X by the wheelbase; Y and Z stay the same. Changing wheel diameter shifts entered center Z by −Δdiameter/2.</p>
+            <div id="obstacle-fields"></div>
+            <p class="hint obstacle-limit">These are static visual envelopes. They do not move with suspension travel and do not calculate clearances or block hardpoint edits. Unchecking an envelope retains its values.</p>
+          </section>
         </div>
         <div class="preview-column">
           <section class="panel viewer-panel"><div class="section-title"><h2>Live geometry preview</h2><span class="live-badge"><span></span> LIVE</span></div>
-            <div class="viewer"><canvas id="scene" tabindex="0" aria-label="Interactive 3D suspension. Drag to orbit, scroll to zoom. Use arrow keys to rotate and plus or minus to zoom."></canvas><div class="viewer-title"><span id="viewer-axle">FRONT AXLE</span><strong id="viewer-topology">Double wishbone</strong><small id="viewer-detail">Pushrod · Bell crank</small></div><div class="view-buttons" aria-label="Camera view"><button data-view="iso" aria-pressed="true">ISO</button><button data-view="front" aria-pressed="false">Front</button><button data-view="top" aria-pressed="false">Top</button><button id="reset-view" aria-label="Reset camera">↺</button></div><div class="viewer-bottom"><span>↔ Drag to orbit <i>·</i> Scroll to zoom</span><label><input id="show-labels" type="checkbox"> Labels</label></div></div>
-            <div class="legend"><span><i class="arm"></i> Control arms</span><span><i class="actuator"></i> Actuation</span><span><i class="steering"></i> Steering / toe link</span><span><i class="point"></i> Hardpoints</span><span id="arb-legend" hidden><i class="arb"></i> U-bar ARB (static)</span></div>
+            <div class="viewer"><canvas id="scene" tabindex="0" aria-label="Interactive 3D suspension and packaging envelopes. Drag to orbit, scroll to zoom. Use arrow keys to rotate and plus or minus to zoom."></canvas><div class="viewer-title"><span id="viewer-axle">FRONT AXLE</span><strong id="viewer-topology">Double wishbone</strong><small id="viewer-detail">Pushrod · Bell crank</small></div><div class="view-buttons" aria-label="Camera view"><button data-view="iso" aria-pressed="true">ISO</button><button data-view="front" aria-pressed="false">Front</button><button data-view="top" aria-pressed="false">Top</button><button id="fit-all" aria-pressed="false">Fit all</button><button id="reset-view" aria-label="Reset camera">↺</button></div><div class="viewer-bottom"><span>↔ Drag to orbit <i>·</i> Scroll to zoom</span><label><input id="show-labels" type="checkbox"> Labels</label></div></div>
+            <div class="legend"><span><i class="arm"></i> Control arms</span><span><i class="actuator"></i> Actuation</span><span><i class="steering"></i> Steering / toe link</span><span><i class="point"></i> Hardpoints</span><span id="arb-legend" hidden><i class="arb"></i> U-bar ARB (static)</span><span id="engine-legend" hidden><i class="engine"></i> Engine envelope</span><span id="differential-legend" hidden><i class="differential"></i> Differential envelope</span><span id="cockpit-legend" hidden><i class="cockpit"></i> Cockpit envelope</span></div>
             <p id="arb-viewer-note" class="hint arb-viewer-note" hidden></p>
+            <p id="obstacle-viewer-note" class="hint obstacle-viewer-note" hidden></p>
             <div class="preview-stats"><div><small>TRACK WIDTH</small><strong id="stat-track"></strong></div><div><small>SUSPENSION POINTS / SIDE</small><strong id="stat-points"></strong></div><div><small>TOPOLOGY</small><strong id="stat-solver"></strong></div></div>
           </section>
           <section class="panel summary-panel"><div class="section-title"><h2>Design overview</h2><span class="small">2 axles</span></div><div id="axle-summary"></div><div class="info-note"><span>ⓘ</span><p>Each axle defines its own hardpoints, kinematic constraints, and 3D geometry. SAE J670 Z-down: +X forward, +Y right, +Z down. Left-side hardpoints (Y &lt; 0) are mirrored across Y = 0.</p></div></section>
@@ -70,5 +76,5 @@
   </div>
   <dialog id="library"><div class="dialog-heading"><div><span class="eyebrow">DESIGN LIBRARY</span><h2>Choose your starting point.</h2></div><button id="close-library" class="icon-button" aria-label="Close design library">×</button></div><p class="hint">Opening a design replaces the current draft. Save your changes first.</p><div id="presets"></div><h3 class="library-subtitle">Saved in this browser</h3><div id="saved-designs"></div><label class="button subtle import-label">↑ Import design JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label><p id="library-error" role="alert"></p></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./src/app.js?v=0.2.3"></script>
+  <script type="module" src="./src/app.js?v=0.2.4"></script>
 </body></html>

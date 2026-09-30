@@ -372,7 +372,7 @@ p {
   display:grid;
   gap:18px;
 }
-.vehicle-panel,.axle-panel {
+.vehicle-panel,.axle-panel,.obstacle-panel {
   padding:22px;
 }
 .section-title {
@@ -587,6 +587,23 @@ input::-webkit-inner-spin-button {
 .arb-coordinates input {width:100%;min-width:0;}
 .arb-viewer-note {margin:0;padding:0 22px 14px;color:#448272;}
 :root[data-theme="dark"] .arb-viewer-note {color:#92d4bf;}
+.obstacle-intro {margin:-8px 0 16px;}
+.obstacle-card {border:1px solid var(--border);border-radius:5px;padding:10px 12px 12px;margin:12px 0 0;min-width:0;}
+.obstacle-card>legend {font-size:11px;font-weight:600;padding:0 7px;color:#554d58;}
+.obstacle-card-heading {display:flex;justify-content:flex-end;margin:-5px 0 10px;}
+.obstacle-reference {margin:0 0 13px;}
+.obstacle-subheading {border-top:1px solid var(--border);padding-top:10px;margin:11px 0 9px;color:#8d8390;font-size:8px;letter-spacing:1.2px;}
+.obstacle-coordinates,.obstacle-dimensions {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.obstacle-dimensions {grid-template-columns:repeat(2,minmax(0,1fr));}
+.obstacle-coordinates .field,.obstacle-dimensions .field {margin:0;min-width:0;}
+.obstacle-coordinates input,.obstacle-dimensions input {min-width:0;padding:0 7px!important;}
+.obstacle-status {min-height:16px;margin-top:9px;}
+.obstacle-status.error {color:#b24d48;}
+.obstacle-limit {margin-top:14px;}
+.obstacle-viewer-note {margin:0;padding:0 22px 14px;color:#66748a;}
+.legend i.engine {background:#b57a2a;}
+.legend i.differential {background:#39769b;}
+.legend i.cockpit {background:#80558e;}
 input[type=checkbox] {
   accent-color:var(--accent);
 }
@@ -1078,6 +1095,10 @@ dialog::backdrop {
 :root[data-theme="dark"] :is(.unit-badge,.segmented,.segmented button>span,.axle-icon,.solver-metrics,th) {
   background:var(--surface-soft);
 }
+:root[data-theme="dark"] .obstacle-card>legend {color:var(--text);}
+:root[data-theme="dark"] .obstacle-subheading {color:var(--muted);}
+:root[data-theme="dark"] .obstacle-status.error {color:#f28b82;}
+:root[data-theme="dark"] .obstacle-viewer-note {color:#b9c7d8;}
 :root[data-theme="dark"] :is(.segmented,.subsection-heading,.viewer,.preview-stats,.preview-stats>div,.summary-row,th,td) {
   border-color:var(--border);
 }
@@ -1432,3 +1453,6 @@ dialog::backdrop {
 
 .legend i.arb {background:#448272;}
 :root[data-theme="dark"] .legend i.arb {background:#92d4bf;}
+:root[data-theme="dark"] .legend i.engine {background:#f0bd70;}
+:root[data-theme="dark"] .legend i.differential {background:#82c8eb;}
+:root[data-theme="dark"] .legend i.cockpit {background:#d5a6e7;}

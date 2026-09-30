@@ -66,7 +66,7 @@ export function runChecks() {
     near(symmetric.left.camber,symmetric.right.camber);near(symmetric.left.toe,symmetric.right.toe);
   });
   const legacyDesign=()=>{
-    const d=preset('cr26');d.version=1;delete d.coordinateSystem;delete d.hardpointFrame;delete d.lengthUnit;
+    const d=preset('cr26');d.version=1;delete d.coordinateSystem;delete d.hardpointFrame;delete d.lengthUnit;delete d.obstacles;
     for(const a of Object.values(d.axles))for(const [k,p] of Object.entries(a.hardpoints))a.hardpoints[k]=legacyToSAE(p);
     return d;
   };

@@ -1,6 +1,7 @@
 /** Canonical schema v2: SAE J670 Z-down; axle-local hardpoints in mm. */
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
 import { validateAntiRollBar } from './arb.js?v=0.2.3';
+import { newObstacles, validateObstacles } from './obstacles.js?v=0.2.4';
 export const TOPOLOGIES = {
   'double-wishbone': { name: 'Double wishbone', solver: 'Wishbone · 5 links' },
   macpherson: { name: 'MacPherson', solver: 'Strut constraint' },
@@ -19,7 +20,7 @@ export function axle(topology = 'double-wishbone', track = 1200, steered = true)
   a.hardpoints = generatePoints(a, 460); return a;
 }
 export function newDesign() {
-  return { version: 2, coordinateSystem: COORDINATE_SYSTEM, hardpointFrame: HARDPOINT_FRAME, lengthUnit: LENGTH_UNIT, name: 'Untitled suspension', wheelbase: 1600, wheelDiameter: 460, axles: { front: axle(), rear: axle('double-wishbone', 1180, false) } };
+  return { version: 2, coordinateSystem: COORDINATE_SYSTEM, hardpointFrame: HARDPOINT_FRAME, lengthUnit: LENGTH_UNIT, name: 'Untitled suspension', wheelbase: 1600, wheelDiameter: 460, axles: { front: axle(), rear: axle('double-wishbone', 1180, false) }, obstacles: newObstacles() };
 }
 export function normalizeAxle(a) {
   if (a.topology === 'macpherson') a.actuation = 'direct';
@@ -64,6 +65,7 @@ export function validateDesign(d) {
   if (d.coordinateSystem !== COORDINATE_SYSTEM || d.hardpointFrame !== HARDPOINT_FRAME || d.lengthUnit !== LENGTH_UNIT) errors.push('Expected SAE_J670_Z_DOWN coordinates, AXLE_LOCAL frame, and mm units.');
   if (typeof d.name !== 'string' || !d.name.trim() || d.name.length > 80) errors.push('Design name must contain 1–80 characters.');
   number(d.wheelbase,500,10000,'Wheelbase'); number(d.wheelDiameter,200,1500,'Wheel diameter');
+  errors.push(...validateObstacles(d.obstacles));
   for (const key of ['front','rear']) {
     const a = d.axles[key]; if (!a || !Object.hasOwn(TOPOLOGIES,a.topology)) { errors.push(`${key}: invalid topology.`); continue; }
     errors.push(...validateAntiRollBar(a.antiRollBar).map(error => `${key}: ${error}`));
