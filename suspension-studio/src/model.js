@@ -1,13 +1,15 @@
 /** Canonical schema v2: SAE J670 Z-down; axle-local hardpoints in mm. */
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
 import { validateAntiRollBar } from './arb.js?v=0.2.3';
-import { newObstacles, validateObstacles } from './obstacles.js?v=0.2.4';
+import { newObstacles, validateObstacles } from './obstacles.js?v=0.2.5';
 export const TOPOLOGIES = {
   'double-wishbone': { name: 'Double wishbone', solver: 'Wishbone · 5 links' },
   macpherson: { name: 'MacPherson', solver: 'Strut constraint' },
   'multi-link': { name: 'Multi-link', solver: '5-link constraint' },
 };
 export const clone = value => structuredClone(value);
+export const newHeaveTravel = () => ({ compression: 25.4, rebound: 25.4 });
+export const newInterferenceSettings = () => ({ linkOD: null });
 export const title = value => value.replaceAll('-', ' ').replace(/^./, c => c.toUpperCase());
 // Display terminology is separate from stable v1/v2 JSON hardpoint identifiers.
 export function hardpointLabel(key) {
@@ -20,7 +22,7 @@ export function axle(topology = 'double-wishbone', track = 1200, steered = true)
   a.hardpoints = generatePoints(a, 460); return a;
 }
 export function newDesign() {
-  return { version: 2, coordinateSystem: COORDINATE_SYSTEM, hardpointFrame: HARDPOINT_FRAME, lengthUnit: LENGTH_UNIT, name: 'Untitled suspension', wheelbase: 1600, wheelDiameter: 460, axles: { front: axle(), rear: axle('double-wishbone', 1180, false) }, obstacles: newObstacles() };
+  return { version: 2, coordinateSystem: COORDINATE_SYSTEM, hardpointFrame: HARDPOINT_FRAME, lengthUnit: LENGTH_UNIT, name: 'Untitled suspension', wheelbase: 1600, wheelDiameter: 460, heaveTravel: newHeaveTravel(), interference: newInterferenceSettings(), axles: { front: axle(), rear: axle('double-wishbone', 1180, false) }, obstacles: newObstacles() };
 }
 export function normalizeAxle(a) {
   if (a.topology === 'macpherson') a.actuation = 'direct';
@@ -65,6 +67,21 @@ export function validateDesign(d) {
   if (d.coordinateSystem !== COORDINATE_SYSTEM || d.hardpointFrame !== HARDPOINT_FRAME || d.lengthUnit !== LENGTH_UNIT) errors.push('Expected SAE_J670_Z_DOWN coordinates, AXLE_LOCAL frame, and mm units.');
   if (typeof d.name !== 'string' || !d.name.trim() || d.name.length > 80) errors.push('Design name must contain 1–80 characters.');
   number(d.wheelbase,500,10000,'Wheelbase'); number(d.wheelDiameter,200,1500,'Wheel diameter');
+  if (!d.heaveTravel || typeof d.heaveTravel !== 'object' || Array.isArray(d.heaveTravel) ||
+      Object.keys(d.heaveTravel).some(key => !['compression','rebound'].includes(key))) {
+    errors.push('Heave travel must contain compression and rebound magnitudes.');
+  } else {
+    for (const key of ['compression','rebound']) number(d.heaveTravel[key],0,100,`Heave ${key}`);
+    if (!Object.hasOwn(d.heaveTravel,'compression') || !Object.hasOwn(d.heaveTravel,'rebound')) errors.push('Heave travel must contain compression and rebound magnitudes.');
+  }
+  if (d.interference !== undefined) {
+    if (!d.interference || typeof d.interference !== 'object' || Array.isArray(d.interference) ||
+        Object.keys(d.interference).some(key => key !== 'linkOD') || !Object.hasOwn(d.interference,'linkOD')) {
+      errors.push('Interference settings must contain only the shared suspension link OD.');
+    } else if (d.interference.linkOD !== null && (!Number.isFinite(d.interference.linkOD) || d.interference.linkOD <= 0)) {
+      errors.push('Shared suspension link OD must be blank or greater than 0 mm.');
+    }
+  }
   errors.push(...validateObstacles(d.obstacles));
   for (const key of ['front','rear']) {
     const a = d.axles[key]; if (!a || !Object.hasOwn(TOPOLOGIES,a.topology)) { errors.push(`${key}: invalid topology.`); continue; }

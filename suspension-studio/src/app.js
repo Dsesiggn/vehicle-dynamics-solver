@@ -1,11 +1,12 @@
-import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.4';
-import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel} from './model.js?v=0.2.4';
+import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.5';
+import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel} from './model.js?v=0.2.5';
 import {solveAxle} from './solver.js?v=0.2.3';
-import {SuspensionViewer} from './viewer.js?v=0.2.4';
+import {SuspensionViewer} from './viewer.js?v=0.2.5';
 import {ARB_POINTS,newAntiRollBar,arbComplete} from './arb.js?v=0.2.3';
-import {OBSTACLE_TYPES,newObstacles,obstacleComplete} from './obstacles.js?v=0.2.4';
+import {OBSTACLE_TYPES,newObstacles,obstacleComplete} from './obstacles.js?v=0.2.5';
+import {evaluateHeavePosition,scanHeaveTravel} from './interference.js?v=0.2.5';
 const $=id=>document.getElementById(id);
-let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,toastTimer,dirty=false;
+let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,heavePosition=0,heavePreviewActive=false,lastHeaveScan=null,toastTimer,dirty=false;
 try {
   const library=readLibrary(localStorage);saved=library.saved;rejected=library.rejected;
   if(library.migrated)libraryNotice=`Converted ${library.migrated} saved design(s) to SAE J670 Z-down. Original v1 storage is retained.`;
@@ -15,17 +16,24 @@ const viewer=new SuspensionViewer($('scene'));
 document.addEventListener('studio-theme-change',()=>viewer.draw());
 const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(message) { $('toast').textContent=message;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),4200); }
-function markDirty() {dirty=true;$('save-state').textContent='Unsaved changes';}
-function resetMotion() {bump=0;rack=0;$('bump').value=0;$('steer').value=0;}
+function markDirty() {dirty=true;lastHeaveScan=null;$('save-state').textContent='Unsaved changes';}
+function resetMotion() {bump=0;rack=0;heavePosition=0;heavePreviewActive=false;$('bump').value=0;$('steer').value=0;$('heave-position').value=0;}
 function fields() {
   const a=design.axles[active];
   $('design-name').value=design.name;$('wheelbase').value=design.wheelbase;$('wheel-diameter').value=design.wheelDiameter;
+  $('heave-compression').value=design.heaveTravel.compression;$('heave-rebound').value=design.heaveTravel.rebound;
+  heavePosition=Math.max(-design.heaveTravel.rebound,Math.min(design.heaveTravel.compression,heavePosition));
+  $('link-od-fields').innerHTML=`<label class="field">Shared suspension link OD <div class="number-wrap"><input id="link-od" data-link-od="true" type="number" min="0.001" step="any" value="${design.interference.linkOD??''}" placeholder="mm" aria-label="Shared suspension link outer diameter"></div></label><p class="hint">Use the largest link OD in the real design. The same conservative OD is applied to suspension links, pushrods/pullrods, and bell-crank arms. Leave blank until known.</p>`;
+  $('heave-position').min=-design.heaveTravel.rebound;$('heave-position').max=design.heaveTravel.compression;$('heave-position').step=.1;$('heave-position').value=heavePosition;
+  $('heave-position-value').textContent=`${heavePosition.toFixed(1)} mm`;
   for(const [id,key] of Object.entries({'track':'track','rack-length':'rackLength','rack-travel':'rackTravel','spring-od':'springOD','damper-od':'damperOD','actuation':'actuation','mounting':'mounting'})) $(id).value=typeof a[key]==='number'?Number(a[key].toFixed(3)):a[key];
   $('steered').checked=a.steered;$('rack-length').disabled=!a.steered;$('rack-travel').disabled=!a.steered;
   $('actuation').disabled=a.topology==='macpherson';$('mounting').disabled=a.topology==='macpherson';
   $('compatibility-note').textContent=a.topology==='macpherson'?'MacPherson uses a direct-acting, telescopic strut.':a.actuation==='direct'?'Direct actuation connects the coilover to the upright.':'Pushrod and pullrod actuation use a bell crank to drive the coilover.';
   document.querySelectorAll('[data-axle]').forEach(b=>b.setAttribute('aria-selected',b.dataset.axle===active));
   document.querySelectorAll('[data-topology]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.topology===a.topology));
+  bump=Math.max(-design.heaveTravel.rebound,Math.min(design.heaveTravel.compression,bump));
+  $('bump').min=-design.heaveTravel.rebound;$('bump').max=design.heaveTravel.compression;$('bump').step=.1;$('bump').value=bump;
   $('steer').min=-a.rackTravel/2;$('steer').max=a.rackTravel/2;$('steer').step=.5;$('steer').disabled=!a.steered;
   renderARB();renderObstacles();
 }
@@ -43,9 +51,40 @@ function renderObstacles() {
     return `<fieldset class="obstacle-card"><legend>${label}</legend><div class="obstacle-card-heading"><label class="switch-label"><input type="checkbox" data-obstacle-visible="${key}" ${obstacle.visible?'checked':''} aria-label="Show ${label.toLowerCase()} in preview"> Show in preview</label></div><label class="field obstacle-reference">Coordinate reference axle<select data-obstacle-reference="${key}" aria-label="${label} coordinate reference axle"><option value="front" ${obstacle.referenceAxle==='front'?'selected':''}>Front axle datum</option><option value="rear" ${obstacle.referenceAxle==='rear'?'selected':''}>Rear axle datum</option></select></label><div class="obstacle-subheading">CENTER · SAE J670 Z-DOWN</div><div class="obstacle-coordinates">${centerFields}</div><div class="obstacle-subheading">DIMENSIONS</div><div class="obstacle-dimensions">${dimensionFields}</div><p class="hint obstacle-status" id="obstacle-${key}-status" role="status"></p></fieldset>`;
   }).join('');
 }
+function renderHeaveStatus(errors, current) {
+  const target=$('heave-check-results'),linkOD=design.interference?.linkOD;
+  if(errors.length) {target.innerHTML='<p class="hint">Correct the design validation errors before running the interference check.</p>';return;}
+  if(!Number.isFinite(linkOD)||linkOD<=0) {target.innerHTML='<p class="hint">Enter the shared suspension-link OD to check links and dampers.</p>';return;}
+  let html=`<p class="hint heave-current" role="status">`;
+  if(!current?.ok) html+=`Heave position ${heavePosition.toFixed(1)} mm could not be checked: ${escape(current?.reason||'No solved position.')}`;
+  else if(current.contacts.length) html+=`<strong class="interference-warning">${current.contacts.length} modeled interference${current.contacts.length===1?'':'s'} at ${heavePosition.toFixed(1)} mm.</strong> ${current.contacts.map(item=>escape(item.target)).join('; ')}`;
+  else html+=`No modeled interference at the selected ${heavePosition.toFixed(1)} mm heave position.`;
+  html+='</p>';
+  if(!lastHeaveScan) html+='<p class="hint">Run the full travel scan to find contact ranges. The slider checks its selected position directly.</p>';
+  else if(!lastHeaveScan.ok) html+=`<p class="solver-status error">Full sweep incomplete: ${escape(lastHeaveScan.reason)}</p>`;
+  else {
+    html+=`<p class="hint">Full sweep completed: ${lastHeaveScan.sampleCount} solved positions, wheel-center spacing no greater than ${lastHeaveScan.sampleStepMm} mm, contact boundaries refined to ${lastHeaveScan.boundaryToleranceMm} mm. Checked ${lastHeaveScan.obstacleCount} complete visible packaging envelope${lastHeaveScan.obstacleCount===1?'':'s'}; link-to-link and link-to-damper pairs are included. Members sharing a pivot are skipped because joint and bracket solids are not defined.</p>`;
+    if(lastHeaveScan.events.length) {
+      html+='<div class="heave-events" role="list">'+lastHeaveScan.events.map(event=>`<button type="button" class="heave-event" data-heave-seek="${event.firstContactTravel}" role="listitem"><strong>${escape(event.target)}</strong><small>${event.startTravel.toFixed(2)} to ${event.endTravel.toFixed(2)} mm · minimum ${event.minimumClearanceMm.toFixed(2)} mm at ${event.minimumTravel.toFixed(2)} mm</small></button>`).join('')+'</div>';
+    } else if(lastHeaveScan.minima.length) {
+      const closest=lastHeaveScan.minima[0];
+      html+=`<p class="solver-status">No interference found at sampled positions. Closest modeled pair: ${escape(closest.target)}, ${closest.clearanceMm.toFixed(2)} mm clearance at ${closest.travel.toFixed(2)} mm.</p>`;
+    } else html+='<p class="solver-status">No complete link or obstacle geometry was available for a distance result.</p>';
+    html+='<p class="hint">Capsule model: straight centerlines with round diameter and rounded ends. Contact is clearance ≤ 0 mm. A feature narrower than the 0.25 mm scan spacing may fall between samples; the slider evaluates each selected travel position and contacting boundaries are bracket-refined.</p>';
+  }
+  html+='<p class="hint">Springs, tires, uprights, anti-roll-bar geometry, and joint/bracket solids are not included.</p>';
+  target.innerHTML=html;
+}
 function update() {
-  const a=design.axles[active],errors=validateDesign(design),result=errors.length?null:solveAxle(a,bump,rack);
-  viewer.update(a,design.wheelDiameter,result,{obstacles:design.obstacles||{},activeAxle:active,wheelbase:design.wheelbase});
+  const a=design.axles[active],errors=validateDesign(design),kinematicResult=errors.length?null:solveAxle(a,bump,rack);
+  const invalidField=[...document.querySelectorAll('input[type=number]')].some(input=>!input.disabled&&(!(input.dataset.arbPoint||input.dataset.obstacleField||input.dataset.linkOd)&&input.value===''||!input.checkValidity()));
+  const linkOD=design.interference?.linkOD;
+  const heaveCurrent=!errors.length&&Number.isFinite(linkOD)&&linkOD>0?evaluateHeavePosition({axle:a,design,activeAxle:active,travel:heavePosition}):null;
+  const result=heavePreviewActive&&heaveCurrent?.ok?heaveCurrent.solved:kinematicResult;
+  const highlightSegments=heavePreviewActive&&heaveCurrent?.ok?new Set(heaveCurrent.contacts.flatMap(item=>item.memberIds)):new Set();
+  viewer.update(a,design.wheelDiameter,result,{obstacles:design.obstacles||{},activeAxle:active,wheelbase:design.wheelbase,linkOD,highlightSegments});
+  $('interference-legend').hidden=!highlightSegments.size;
+  $('run-heave-check').disabled=errors.length>0||invalidField||!Number.isFinite(linkOD)||linkOD<=0;
   $('fit-all').setAttribute('aria-pressed',String(viewer.fitMode));if(viewer.fitMode)document.querySelectorAll('[data-view]').forEach(button=>button.setAttribute('aria-pressed','false'));
   $('viewer-axle').textContent=`${active.toUpperCase()} AXLE`;$('viewer-topology').textContent=TOPOLOGIES[a.topology].name;$('viewer-detail').textContent=`${title(a.actuation)} · ${title(a.mounting)}`;
   $('stat-track').innerHTML=`${a.track.toLocaleString(undefined,{maximumFractionDigits:1})} <span>mm</span>`;
@@ -63,17 +102,17 @@ function update() {
     const invalid=[...$('obstacle-fields').querySelectorAll(`[data-obstacle-kind="${key}"]`)].some(input=>input.type==='number'&&!input.checkValidity());
     $(`${key}-legend`).hidden=!visible||!ready;
     const status=$(`obstacle-${key}-status`);status.classList.toggle('error',invalid);
-    status.textContent=invalid?'Enter a center coordinate from −10000 to 10000 mm and dimensions greater than 0 up to 10000 mm.':!visible?'Hidden from the preview; entered values are retained.':ready?'Envelope shown in both axle views as a static reference.':'Enter all center coordinates and dimensions to show this envelope; incomplete geometry can be saved.';
+    status.textContent=invalid?'Enter a center coordinate from −10000 to 10000 mm and dimensions greater than 0 up to 10000 mm.':!visible?'Hidden from the preview and heave check; entered values are retained.':ready?'Shown in both axle views and included in heave clearance checks.':'Enter all center coordinates and dimensions to show and check this envelope; incomplete geometry can be saved.';
     hasVisibleObstacle||=visible;
   }
   $('obstacle-viewer-note').hidden=!hasVisibleObstacle;
-  $('obstacle-viewer-note').textContent='Packaging envelopes use SAE J670 Z-down millimeters and remain static during suspension motion. They do not calculate collision or clearance.';
+  $('obstacle-viewer-note').textContent='Packaging envelopes use SAE J670 Z-down millimeters and remain static during suspension motion. Complete envelopes with “Show in preview” enabled are included in the heave interference check.';
   $('axle-summary').innerHTML=Object.entries(design.axles).map(([name,axle])=>`<div class="summary-row"><span class="axle-icon">${name==='front'?'F':'R'}</span><div><strong>${title(name)} axle · ${TOPOLOGIES[axle.topology].name}</strong><small>${title(axle.actuation)} / ${title(axle.mounting)} · ${axle.steered?'Steered':'Fixed toe links'}</small></div><span>${Number(axle.track.toFixed(1))} mm</span></div>`).join('');
-  $('bump-value').textContent=`${bump} mm`;$('steer-value').textContent=`${rack} mm`;
+  $('bump-value').textContent=`${bump} mm`;$('steer-value').textContent=`${rack} mm`;$('heave-position-value').textContent=`${heavePosition.toFixed(1)} mm`;
   if(errors.length) $('solver-results').innerHTML=`<p class="solver-status error">${errors.map(escape).join('<br>')}</p>`;
-  else if(!result.ok) $('solver-results').innerHTML=`<p class="solver-status error">${escape(result.left.reason||result.right.reason)} Showing static geometry.</p>`;
+  else if(!result.ok) $('solver-results').innerHTML=`<p class="solver-status error">${escape(result.left?.reason||result.right?.reason||'No nearby assembly solution.')} Showing static geometry.</p>`;
   else $('solver-results').innerHTML=`<div class="solver-metrics"><span>Left Δ camber <strong>${result.left.camber.toFixed(2)}°</strong></span><span>Left Δ toe-in <strong>${result.left.toe.toFixed(2)}°</strong></span><span>Right Δ toe-in <strong>${result.right.toe.toFixed(2)}°</strong></span><span>Left / right steer <strong>${result.left.steer.toFixed(2)}° / ${result.right.steer.toFixed(2)}°</strong></span><span>Left damper compression <strong>${result.left.compression.toFixed(2)} mm</strong></span></div><p class="solver-status">● Position solved · maximum constraint residual ${Math.max(result.left.error,result.right.error).toFixed(5)} mm</p>`;
-  const invalidField=[...document.querySelectorAll('input[type=number]')].some(input=>!input.disabled&&(!(input.dataset.arbPoint||input.dataset.obstacleField)&&input.value===''||!input.checkValidity()));
+  renderHeaveStatus(errors,heaveCurrent);
   $('save').disabled=!storageReadable||errors.length>0||invalidField;$('export').disabled=errors.length>0||invalidField;
   if(!$('hardpoints-panel').hidden && !document.activeElement?.dataset.point) renderHardpoints();
 }
@@ -89,7 +128,7 @@ function geometryChange(change) {
   if(customized&&!confirm('Changing topology or actuation replaces this axle’s current hardpoints with generated geometry. Continue?')) {fields();return;}
   change(a);normalizeAxle(a);a.hardpoints=generatePoints(a,design.wheelDiameter);resetMotion();markDirty();fields();update();
 }
-for(const button of document.querySelectorAll('[data-axle]'))button.addEventListener('click',()=>{active=button.dataset.axle;resetMotion();fields();update();});
+for(const button of document.querySelectorAll('[data-axle]'))button.addEventListener('click',()=>{active=button.dataset.axle;lastHeaveScan=null;resetMotion();fields();update();});
 for(const button of document.querySelectorAll('[data-topology]'))button.addEventListener('click',()=>{if(button.dataset.topology!==design.axles[active].topology)geometryChange(a=>a.topology=button.dataset.topology);});
 $('actuation').addEventListener('change',()=>geometryChange(a=>a.actuation=$('actuation').value));
 $('mounting').addEventListener('change',()=>geometryChange(a=>{a.mounting=$('mounting').value;a.actuation=a.mounting==='direct'?'direct':a.actuation==='direct'?'pushrod':a.actuation;}));
@@ -129,6 +168,11 @@ $('obstacle-fields').addEventListener('input',e=>{
   if(field==='center')obstacle.center[Number(input.dataset.axis)]=value;else obstacle.dimensions[field]=value;
   update();
 });
+$('link-od-fields').addEventListener('input',e=>{
+  const input=e.target;if(input.id!=='link-od')return;
+  markDirty();if(input.value!==''&&!input.checkValidity()){update();return;}
+  design.interference.linkOD=input.value===''?null:Number(input.value);update();
+});
 $('design-name').addEventListener('input',()=>{design.name=$('design-name').value;markDirty();update();});
 $('wheelbase').addEventListener('input',()=>{if(!validInput($('wheelbase')))return;design.wheelbase=Number($('wheelbase').value);markDirty();update();});
 $('wheel-diameter').addEventListener('input',()=>{
@@ -151,7 +195,29 @@ $('hardpoint-rows').addEventListener('input',e=>{
 $('regenerate').addEventListener('click',()=>{if(!confirm(`Replace ${active} axle hardpoints with generated defaults?`))return;const a=design.axles[active];a.hardpoints=generatePoints(a,design.wheelDiameter);resetMotion();markDirty();update();toast('Axle hardpoints regenerated.');});
 for(const id of ['edit-hardpoints','hardpoints-step'])$(id).addEventListener('click',()=>reveal('hardpoints-panel'));
 $('kinematics-step').addEventListener('click',()=>reveal('kinematics-panel'));
-$('bump').addEventListener('input',()=>{bump=Number($('bump').value);update();});$('steer').addEventListener('input',()=>{rack=Number($('steer').value);update();});
+$('bump').addEventListener('input',()=>{bump=Number($('bump').value);heavePosition=Math.max(-design.heaveTravel.rebound,Math.min(design.heaveTravel.compression,bump));$('heave-position').value=heavePosition;heavePreviewActive=false;update();});
+$('steer').addEventListener('input',()=>{rack=Number($('steer').value);heavePreviewActive=false;update();});
+for(const [id,key] of Object.entries({'heave-compression':'compression','heave-rebound':'rebound'})) $(id).addEventListener('input',()=>{
+  const input=$(id);if(!validInput(input))return;
+  design.heaveTravel[key]=Number(input.value);heavePosition=Math.max(-design.heaveTravel.rebound,Math.min(design.heaveTravel.compression,heavePosition));
+  bump=Math.max(-design.heaveTravel.rebound,Math.min(design.heaveTravel.compression,bump));
+  $('heave-position').min=-design.heaveTravel.rebound;$('heave-position').max=design.heaveTravel.compression;$('heave-position').value=heavePosition;
+  $('bump').min=-design.heaveTravel.rebound;$('bump').max=design.heaveTravel.compression;$('bump').value=bump;
+  markDirty();update();
+});
+$('heave-position').addEventListener('input',()=>{
+  heavePosition=Number($('heave-position').value);heavePreviewActive=true;bump=heavePosition;rack=0;
+  $('bump').value=bump;$('steer').value=0;update();
+});
+$('run-heave-check').addEventListener('click',()=>{
+  heavePreviewActive=true;bump=heavePosition;rack=0;$('bump').value=bump;$('steer').value=0;
+  lastHeaveScan=scanHeaveTravel({axle:design.axles[active],design,activeAxle:active});update();
+});
+$('heave-check-results').addEventListener('click',e=>{
+  const button=e.target.closest('[data-heave-seek]');if(!button)return;
+  heavePosition=Number(button.dataset.heaveSeek);heavePreviewActive=true;bump=heavePosition;rack=0;
+  $('heave-position').value=heavePosition;$('bump').value=bump;$('steer').value=0;update();
+});
 $('reset-motion').addEventListener('click',()=>{resetMotion();update();});
 for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{viewer.view(button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b===button));$('fit-all').setAttribute('aria-pressed','false');});
 $('fit-all').addEventListener('click',()=>{viewer.fitAll();$('fit-all').setAttribute('aria-pressed','true');document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed','false'));});

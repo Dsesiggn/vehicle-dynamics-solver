@@ -34,6 +34,10 @@ These passages support the component names. The four-point, mirrored representat
 
 Verification covers nullable input persistence, malformed-data rejection, compatibility with existing imports, front/rear independence, and unchanged suspension solutions when ARB inputs change. Synthetic test coordinates are not recommended vehicle geometry.
 
+## Heave interference geometry
+
+The capsule/convex-solid distance checks are not attributed to a supplied vehicle-dynamics book: they apply Euclidean computational geometry to the existing suspension solver's solved hardpoint positions. No force, tire, compliance, spring-rate, damper-rate, or measured-vehicle model is introduced. The assumptions and formulas are recorded in [INTERFERENCE.md](INTERFERENCE.md). Regression tests are software checks against analytic synthetic distances and do not validate clearances on a real vehicle or CAD assembly.
+
 ## Local source lookup
 
 The supplied PDFs are in the user's `CR.FSAE/Literature` directory. Match by the book titles above. Do not copy that directory into the app or include it in an upload. On another machine, request the needed source if it is unavailable rather than claiming it was checked.

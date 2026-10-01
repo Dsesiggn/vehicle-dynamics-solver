@@ -1,11 +1,12 @@
 import { mirrorPoint, toDisplay } from './coordinates.js';
-import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.4';
+import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.5';
 import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.3';
 import {ARB_POINTS,arbComplete} from './arb.js?v=0.2.3';
-import {OBSTACLE_TYPES,obstacleMesh} from './obstacles.js?v=0.2.4';
+import {OBSTACLE_TYPES,obstacleMesh} from './obstacles.js?v=0.2.5';
+import {memberSegmentId} from './interference.js?v=0.2.5';
 const PALETTES={
-  light:{arb:'#448272',arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af',engine:'#b57a2a',differential:'#39769b',cockpit:'#80558e'},
-  dark:{arb:'#92d4bf',arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3',engine:'#f0bd70',differential:'#82c8eb',cockpit:'#d5a6e7'},
+  light:{arb:'#448272',arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af',engine:'#b57a2a',differential:'#39769b',cockpit:'#80558e',interference:'#d21f2b'},
+  dark:{arb:'#92d4bf',arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3',engine:'#f0bd70',differential:'#82c8eb',cockpit:'#d5a6e7',interference:'#ff716c'},
 };
 export class SuspensionViewer {
   constructor(canvas) {
@@ -58,6 +59,7 @@ export class SuspensionViewer {
     drawLine([[0,-1800,0],[0,1800,0]],colors.centerline,.8,.5);
     const objects=[];
     const line=(points,color,width=2,alpha=1)=>objects.push({depth:points.reduce((sum,p)=>sum+project(p)[2],0)/points.length,render:()=>drawLine(points,color,width,alpha)});
+    const checkedColor=id=>this.context?.highlightSegments?.has(id)?colors.interference:null;
     const point=(p,label)=>objects.push({depth:project(p)[2]+1,render:()=>{const [x,y]=project(p);c.beginPath();c.arc(x,y,2.6,0,Math.PI*2);c.fillStyle=colors.pointFill;c.fill();c.strokeStyle=colors.point;c.lineWidth=1.2;c.stroke();if(this.labels){c.fillStyle=colors.label;c.font='7px system-ui';c.fillText(label,x+5,y-5);}}});
     const cylinder=(p1,p2,radius,color)=>{
       const axis=unit(sub(p2,p1)),v=unit(cross(axis,Math.abs(axis[2])>.9?[1,0,0]:[0,0,1])),u=cross(axis,v);
@@ -68,19 +70,29 @@ export class SuspensionViewer {
     for(const side of [-1,1]) {
       const solved=this.motion?.ok?(side===-1?this.motion.left:this.motion.right):null;
       const p=solved?.points||Object.fromEntries(Object.entries(a.hardpoints).map(([k,v])=>[k,side===-1?v:mirrorPoint(v)]));
-      for(const [i,o] of linkPairs(a))line([p[i],p[o]],i==='tie_rod_inner'?colors.steering:colors.arm,2.7);
+      const sideKey=side===-1?'left':'right';
+      for(const [i,o] of linkPairs(a)) {
+        const id=memberSegmentId(sideKey,'link',i,o),color=checkedColor(id)||(i==='tie_rod_inner'?colors.steering:colors.arm);
+        if(this.context?.linkOD>0)cylinder(p[i],p[o],this.context.linkOD/2,color);else line([p[i],p[o]],color,2.7);
+      }
       const upright=Object.entries(p).filter(([k])=>isMoving(k)&&k!=='wheel_center'&&k!=='actuation_outer').map(([,v])=>v);
       for(const v of upright)line([v,p.wheel_center],colors.upright,1.4,.6);
       if(a.topology==='double-wishbone') {line([p.uca_front,p.uca_rear],colors.arm,1,.4);line([p.lca_front,p.lca_rear],colors.arm,1,.4);}
       let damperStart,damperEnd;
-      if(a.topology==='macpherson'){damperStart=p.strut_top;damperEnd=p.strut_bottom;}
-      else if(a.actuation==='direct'){damperStart=p.damper_top;damperEnd=p.actuation_outer;}
+      let damperId;
+      if(a.topology==='macpherson'){damperStart=p.strut_top;damperEnd=p.strut_bottom;damperId=memberSegmentId(sideKey,'damper','strut_top','strut_bottom');}
+      else if(a.actuation==='direct'){damperStart=p.damper_top;damperEnd=p.actuation_outer;damperId=memberSegmentId(sideKey,'damper','damper_top','actuation_outer');}
       else {
-        line([p.actuation_outer,p.rocker_rod],colors.actuator,2.7);
-        line([p.rocker_pivot,p.rocker_rod,p.rocker_damper,p.rocker_pivot],colors.actuator,2);
+        const rodId=memberSegmentId(sideKey,'link','actuation_outer','rocker_rod'),rodColor=checkedColor(rodId)||colors.actuator;
+        if(this.context?.linkOD>0)cylinder(p.actuation_outer,p.rocker_rod,this.context.linkOD/2,rodColor);else line([p.actuation_outer,p.rocker_rod],rodColor,2.7);
+        for(const [start,end] of [['rocker_pivot','rocker_rod'],['rocker_rod','rocker_damper'],['rocker_damper','rocker_pivot']]) {
+          const id=memberSegmentId(sideKey,'link',start,end),color=checkedColor(id)||colors.actuator;
+          if(this.context?.linkOD>0)cylinder(p[start],p[end],this.context.linkOD/2,color);else line([p[start],p[end]],color,2);
+        }
         damperStart=p.damper_top;damperEnd=p.rocker_damper;
+        damperId=memberSegmentId(sideKey,'damper','damper_top','rocker_damper');
       }
-      cylinder(damperStart,damperEnd,a.damperOD/2,colors.actuator);
+      cylinder(damperStart,damperEnd,a.damperOD/2,checkedColor(damperId)||colors.actuator);
       const axis=unit(sub(damperEnd,damperStart)),v=unit(cross(axis,Math.abs(axis[0])>.9?[0,1,0]:[1,0,0])),u=cross(axis,v);
       const helix=Array.from({length:161},(_,i)=>{const t=i/160;return add(add(damperStart,scale(sub(damperEnd,damperStart),.12+.7*t)),add(scale(v,a.springOD/2*Math.cos(t*Math.PI*16)),scale(u,a.springOD/2*Math.sin(t*Math.PI*16))));});
       line(helix,colors.actuator,1.4);

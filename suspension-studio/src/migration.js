@@ -1,4 +1,4 @@
-import { clone, validateDesign, hardpointLabel } from './model.js?v=0.2.4';
+import { clone, validateDesign, hardpointLabel, newHeaveTravel, newInterferenceSettings } from './model.js?v=0.2.5';
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
 
 /** Pure, non-mutating import boundary. Never infer axes from coordinate signs. */
@@ -19,6 +19,10 @@ export function importDesign(value) {
     }
     Object.assign(design, { version: 2, coordinateSystem: COORDINATE_SYSTEM, hardpointFrame: HARDPOINT_FRAME, lengthUnit: LENGTH_UNIT });
   }
+  // Older v1/v2 designs predate the heave checker; their travel starts at the
+  // explicit application default. A supplied malformed value is rejected below.
+  if (design && typeof design === 'object' && !Object.hasOwn(design, 'heaveTravel')) design.heaveTravel = newHeaveTravel();
+  if (design && typeof design === 'object' && !Object.hasOwn(design, 'interference')) design.interference = newInterferenceSettings();
   const errors = validateDesign(design);
   if (errors.length) throw Error(errors.join(' '));
   return { design, migrated };
