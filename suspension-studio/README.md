@@ -7,10 +7,14 @@ A new, dependency-free suspension design workspace. All original repository file
 From the repository root:
 
 ```sh
-python3 -m http.server 8765 --bind 127.0.0.1
+python3 -m http.server 8766 --bind 127.0.0.1
 ```
 
-Open http://127.0.0.1:8765/suspension-studio/ in a modern browser. ES modules require HTTP; opening the HTML directly as a file is not supported. No package installation or build step is required.
+Open http://127.0.0.1:8766/suspension-studio/ in a modern browser and keep Terminal running. Or open [the hosted app](https://dsesiggn.github.io/vehicle-dynamics-solver/suspension-studio/), which needs no local server. No package installation or build step is required.
+
+ES modules require HTTP/HTTPS; opening `index.html` directly with a `file://` address is not supported. The startup screen now explains this and links to the hosted app and local setup. It prevents editing an uninitialized workspace. HTTP startup also reports missing required browser features or module-load errors instead of leaving a silent blank viewer. Browser requirements include Canvas 2D, native dialogs, ResizeObserver, structuredClone, and Object.hasOwn. The source of the file-origin restriction is [MDN’s JavaScript modules guide](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules#other_differences_between_modules_and_classic_scripts).
+
+Saved libraries belong to the browser and web origin. The hosted app and a local HTTP address do not share their saved library. Export a design to JSON, then use **Start from an existing design → Import design JSON** at the other address. Reload the local page after editing source files; this static server does not provide automatic refresh. If the selected port is occupied, choose another port and use that port in the browser URL.
 
 ## Workflow
 

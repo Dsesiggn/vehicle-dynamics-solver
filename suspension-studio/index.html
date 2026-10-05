@@ -5,9 +5,26 @@
   <meta name="theme-color" content="#692f50"><title>Suspension Studio · Vehicle Dynamics</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
   <script src="./src/theme.js?v=0.2.1"></script>
-  <link rel="stylesheet" href="./src/styles.css?v=0.2.5">
+  <link rel="stylesheet" href="./src/styles.css?v=0.2.6">
 </head>
 <body>
+  <section id="startup-panel" class="startup-panel" role="status" aria-live="polite" aria-labelledby="startup-title">
+    <div class="startup-card">
+      <span class="eyebrow">SUSPENSION STUDIO</span>
+      <h1 id="startup-title">Opening your workspace…</h1>
+      <p id="startup-message">Loading the editor and geometry viewer.</p>
+      <div id="startup-help" hidden>
+        <p><a class="button primary" href="https://dsesiggn.github.io/vehicle-dynamics-solver/suspension-studio/">Open the hosted app ↗</a></p>
+        <p>To use this local copy, open Terminal in the repository folder containing <code>suspension-studio</code>, run this command, keep it running, then open <a href="http://127.0.0.1:8766/suspension-studio/">the local app</a>:</p>
+        <pre>python3 -m http.server 8766 --bind 127.0.0.1</pre>
+        <p>Local and hosted addresses have separate saved libraries. Use Export JSON and Import design JSON to move a saved design between them.</p>
+        <p><a href="./README.md">Read the setup instructions</a></p>
+      </div>
+      <details id="startup-details" hidden><summary>Technical details</summary><pre id="startup-error"></pre></details>
+      <noscript><p>JavaScript is disabled. Enable JavaScript in your browser to use the editor and viewer.</p></noscript>
+    </div>
+  </section>
+  <div id="studio-workspace" inert>
   <aside class="sidebar">
     <a class="brand" href="./" aria-label="Vehicle Dynamics home"><span class="brand-mark">V<span>∕</span></span><span>VEHICLE<br><b>DYNAMICS</b></span></a>
     <div class="workspace-label">DESIGN WORKSPACE</div>
@@ -76,5 +93,6 @@
   </div>
   <dialog id="library"><div class="dialog-heading"><div><span class="eyebrow">DESIGN LIBRARY</span><h2>Choose your starting point.</h2></div><button id="close-library" class="icon-button" aria-label="Close design library">×</button></div><p class="hint">Opening a design replaces the current draft. Save your changes first.</p><div id="presets"></div><h3 class="library-subtitle">Saved in this browser</h3><div id="saved-designs"></div><label class="button subtle import-label">↑ Import design JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label><p id="library-error" role="alert"></p></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./src/app.js?v=0.2.5"></script>
+  </div>
+  <script src="./src/startup.js?v=0.2.6"></script>
 </body></html>
