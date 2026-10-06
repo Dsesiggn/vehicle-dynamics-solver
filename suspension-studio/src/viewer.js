@@ -1,7 +1,7 @@
 import { mirrorPoint, toDisplay } from './coordinates.js';
 import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.5';
 import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.3';
-import {ARB_POINTS,arbComplete} from './arb.js?v=0.2.3';
+import {arbPreviewGeometry} from './arb.js?v=0.2.7';
 import {OBSTACLE_TYPES,obstacleMesh} from './obstacles.js?v=0.2.5';
 import {memberSegmentId} from './interference.js?v=0.2.5';
 const PALETTES={
@@ -23,7 +23,9 @@ export class SuspensionViewer {
   update(a,diameter,motion=null,context={}) {
     this.axle=a;this.diameter=diameter;this.motion=motion;this.context=context;
     const current=new Set(OBSTACLE_TYPES.filter(({key})=>context.obstacles?.[key]?.visible&&obstacleMesh(context.obstacles[key],key,context.activeAxle,context.wheelbase)).map(({key})=>key));
-    if([...current].some(key=>!this.visibleObstacleKeys.has(key))||this.lastAxle&&this.lastAxle!==context.activeAxle&&current.size){this.fitMode=true;this.zoom=1;}
+    const arbPreview=arbPreviewGeometry(a.antiRollBar),arbSignature=JSON.stringify(arbPreview.points.map(({key,position})=>[key,position]));
+    if([...current].some(key=>!this.visibleObstacleKeys.has(key))||arbPreview.points.length&&arbSignature!==this.lastArbSignature||this.lastAxle&&this.lastAxle!==context.activeAxle&&(current.size||arbPreview.points.length)){this.fitMode=true;this.zoom=1;}
+    this.lastArbSignature=arbSignature;
     this.lastAxle=context.activeAxle;
     this.visibleObstacleKeys=current;this.draw();
   }
@@ -43,7 +45,8 @@ export class SuspensionViewer {
       const wheel=points.wheel_center,radius=this.diameter/2+85;
       for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])localPoints.push(add(wheel,[x*radius,y*radius,z*radius]));
     }
-    if(a.antiRollBar?.enabled&&arbComplete(a.antiRollBar))for(const p of Object.values(a.antiRollBar.points))localPoints.push(p,mirrorPoint(p));
+    const arbPreview=arbPreviewGeometry(a.antiRollBar);
+    localPoints.push(...arbPreview.points.map(({position})=>position));
     const projectBasis=point=>{const p=toDisplay(point),x=p[0]*Math.cos(this.yaw)-p[1]*Math.sin(this.yaw),depth=p[0]*Math.sin(this.yaw)+p[1]*Math.cos(this.yaw);return [x,(p[2]-this.diameter*.3)*Math.cos(this.pitch)-depth*Math.sin(this.pitch),depth*Math.cos(this.pitch)+p[2]*Math.sin(this.pitch)];};
     let s=Math.min(w/(a.track+this.diameter*.5+180),h/(this.diameter+350))*this.zoom,centerX=0,centerVertical=0,screenCenterY=h*.64;
     if(this.fitMode) {
@@ -60,7 +63,7 @@ export class SuspensionViewer {
     const objects=[];
     const line=(points,color,width=2,alpha=1)=>objects.push({depth:points.reduce((sum,p)=>sum+project(p)[2],0)/points.length,render:()=>drawLine(points,color,width,alpha)});
     const checkedColor=id=>this.context?.highlightSegments?.has(id)?colors.interference:null;
-    const point=(p,label)=>objects.push({depth:project(p)[2]+1,render:()=>{const [x,y]=project(p);c.beginPath();c.arc(x,y,2.6,0,Math.PI*2);c.fillStyle=colors.pointFill;c.fill();c.strokeStyle=colors.point;c.lineWidth=1.2;c.stroke();if(this.labels){c.fillStyle=colors.label;c.font='7px system-ui';c.fillText(label,x+5,y-5);}}});
+    const point=(p,label,color=colors.point,radius=2.6)=>objects.push({depth:project(p)[2]+1,render:()=>{const [x,y]=project(p);c.beginPath();c.arc(x,y,radius,0,Math.PI*2);c.fillStyle=colors.pointFill;c.fill();c.strokeStyle=color;c.lineWidth=1.2;c.stroke();if(this.labels){c.fillStyle=colors.label;c.font='7px system-ui';c.fillText(label,x+5,y-5);}}});
     const cylinder=(p1,p2,radius,color)=>{
       const axis=unit(sub(p2,p1)),v=unit(cross(axis,Math.abs(axis[2])>.9?[1,0,0]:[0,0,1])),u=cross(axis,v);
       const ring=(p,r)=>Array.from({length:33},(_,i)=>add(p,add(scale(v,r*Math.cos(i*Math.PI/16)),scale(u,r*Math.sin(i*Math.PI/16)))));
@@ -105,14 +108,8 @@ export class SuspensionViewer {
     const chassis=Object.entries(a.hardpoints).filter(([k])=>!isMoving(k)&&!k.startsWith('rocker_')&&k!=='damper_top');
     for(const [,p] of chassis)line([p,mirrorPoint(p)],colors.chassis,.8,.35);
     // ARB inputs describe static packaging only, independently of the solved upright.
-    if(a.antiRollBar?.enabled&&arbComplete(a.antiRollBar)) {
-      const left=a.antiRollBar.points,right=Object.fromEntries(Object.entries(left).map(([key,p])=>[key,mirrorPoint(p)]));
-      line([left.arm_tip,left.bend,right.bend,right.arm_tip],colors.arb,3);
-      for(const [side,p] of [['Left',left],['Right',right]]) {
-        line([p.arm_tip,p.link_pickup],colors.arb,1.6);
-        for(const {key,label} of ARB_POINTS)point(p[key],`${side} ARB ${label}`);
-      }
-    }
+    for(const {kind,start,end} of arbPreview.segments)line([start,end],colors.arb,kind==='bar'?3:1.8);
+    for(const {side,label,position} of arbPreview.points)point(position,`${side} ARB ${label}`,colors.arb,4);
     for(const {key,label,mesh} of obstacleMeshes) {
       const fill=`${colors[key]}`;
       for(const face of mesh.faces) {

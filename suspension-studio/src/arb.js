@@ -1,6 +1,8 @@
+import { mirrorPoint } from './coordinates.js';
+
 /** Optional U-bar geometry: LEFT-side, axle-local SAE J670 Z-down coordinates in mm. */
 export const ARB_POINTS = [
-  { key: 'bearing', label: 'Chassis bearing', description: 'Center of the left chassis bearing supporting the transverse bar.' },
+  { key: 'bearing', label: 'Chassis bearing', description: 'Optional preview marker at the center of the left chassis bearing supporting the transverse bar. The entered bar and drop links can be shown without this marker; no bearing position is inferred.' },
   { key: 'bend', label: 'Bar bend', description: 'Centerline bend where the transverse bar meets the left lever arm.' },
   { key: 'arm_tip', label: 'Lever-arm tip', description: 'Drop-link attachment on the left bar lever arm.' },
   { key: 'link_pickup', label: 'Suspension pickup', description: 'Left suspension attachment for the drop link.' },
@@ -39,4 +41,40 @@ export function validateAntiRollBar(arb) {
 export function arbComplete(arb) {
   return arb !== undefined && validateAntiRollBar(arb).length === 0 &&
     ARB_POINTS.every(({ key }) => [0, 1, 2].every(index => coordinate(arb.points[key][index])));
+}
+
+/**
+ * Static centerline preview in axle-local mm. Only complete valid input points
+ * are shown; null coordinates never become zero or estimated geometry.
+ * Bilateral reflection follows the project position contract [X, -Y, Z].
+ * Bearings are markers, not constraints on the bar path. This is no ARB
+ * kinematic, stiffness, or mounting-alignment model.
+ */
+export function arbPreviewGeometry(arb) {
+  const result = { points: [], segments: [], enteredPointCount: 0, missingLabels: ARB_POINTS.map(({ label }) => label), layoutComplete: false };
+  if (!record(arb) || arb.enabled !== true || arb.type !== 'u-bar' || !record(arb.points)) return result;
+
+  const left = {}, right = {};
+  result.missingLabels = [];
+  for (const { key, label } of ARB_POINTS) {
+    const position = arb.points[key];
+    const valid = Object.hasOwn(arb.points, key) && Array.isArray(position) && position.length === 3 &&
+      [0, 1, 2].every(index => coordinate(position[index])) && position[1] <= 0;
+    if (!valid) { result.missingLabels.push(label); continue; }
+    left[key] = [...position];
+    right[key] = mirrorPoint(position);
+    result.enteredPointCount++;
+    result.points.push({ key, label, side: 'Left', position: [...left[key]] }, { key, label, side: 'Right', position: [...right[key]] });
+  }
+
+  const segment = (kind, start, end) => {
+    if (start && end) result.segments.push({ kind, start: [...start], end: [...end] });
+  };
+  segment('bar', left.arm_tip, left.bend);
+  segment('bar', left.bend, right.bend);
+  segment('bar', right.bend, right.arm_tip);
+  segment('drop-link', left.arm_tip, left.link_pickup);
+  segment('drop-link', right.arm_tip, right.link_pickup);
+  result.layoutComplete = !!(left.bend && left.arm_tip && left.link_pickup);
+  return result;
 }

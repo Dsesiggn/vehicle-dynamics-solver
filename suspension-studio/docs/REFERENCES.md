@@ -32,7 +32,9 @@ For the optional U-bar editor, the following passages were visually inspected in
 
 These passages support the component names. The four-point, mirrored representation is an app design choice, not a sourced kinematic or stiffness model. User-entered coordinates are SAE axle-local millimeters. The only geometric conversion is reflection about the center plane, `p_right = [X, -Y, Z]`; no force/sign equation from the references is used. Straight segments join the entered points, without estimating bend radii or material properties. The bearing markers do not enforce mounting alignment, and the suspension pickup does not follow a solved body. No ARB dynamics or physical-validation claim is made.
 
-Verification covers nullable input persistence, malformed-data rejection, compatibility with existing imports, front/rear independence, and unchanged suspension solutions when ARB inputs change. Synthetic test coordinates are not recommended vehicle geometry.
+The preview now accepts a known bar bend, lever-arm tip, and suspension pickup while the chassis bearing location remains unentered. This is a rendering completeness choice: bearing coordinates are only needed for their reference markers, not for segments between the other supplied endpoints. It is not a claim that a real bar can function without bearings. Each known point is mirrored and only endpoint-defined segments are drawn. An incomplete XYZ point is omitted rather than assigning zero or constructing a plausible location. No additional engineering model or book equation is adopted.
+
+Verification covers nullable input persistence, malformed-data rejection, compatibility with existing imports, front/rear independence, unchanged suspension solutions when ARB inputs change, missing-bearing/partial preview behavior, and independently checked Euclidean segment lengths and reflection invariants. Synthetic test coordinates are not recommended vehicle geometry.
 
 ## Heave interference geometry
 

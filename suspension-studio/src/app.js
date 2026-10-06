@@ -1,8 +1,8 @@
 import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.5';
 import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel} from './model.js?v=0.2.5';
 import {solveAxle} from './solver.js?v=0.2.3';
-import {SuspensionViewer} from './viewer.js?v=0.2.5';
-import {ARB_POINTS,newAntiRollBar,arbComplete} from './arb.js?v=0.2.3';
+import {SuspensionViewer} from './viewer.js?v=0.2.7';
+import {ARB_POINTS,newAntiRollBar,arbComplete,arbPreviewGeometry} from './arb.js?v=0.2.7';
 import {OBSTACLE_TYPES,newObstacles,obstacleComplete} from './obstacles.js?v=0.2.5';
 import {evaluateHeavePosition,scanHeaveTravel} from './interference.js?v=0.2.5';
 const $=id=>document.getElementById(id);
@@ -93,13 +93,13 @@ function update() {
   $('viewer-axle').textContent=`${active.toUpperCase()} AXLE`;$('viewer-topology').textContent=TOPOLOGIES[a.topology].name;$('viewer-detail').textContent=invalidField?'Invalid input · Last accepted static geometry':`${title(a.actuation)} · ${title(a.mounting)}`;
   $('stat-track').innerHTML=`${a.track.toLocaleString(undefined,{maximumFractionDigits:1})} <span>mm</span>`;
   $('stat-points').textContent=Object.keys(a.hardpoints).length;$('stat-solver').textContent=TOPOLOGIES[a.topology].solver;
-  const arbEnabled=a.antiRollBar?.enabled===true,arbReady=arbComplete(a.antiRollBar);
+  const arbEnabled=a.antiRollBar?.enabled===true,arbReady=arbComplete(a.antiRollBar),arbPreview=arbPreviewGeometry(a.antiRollBar);
   const invalidArb=[...$('arb-point-fields').querySelectorAll('input')].find(input=>!input.validity.valid);
   $('arb-status').classList.toggle('error',!!invalidArb);
-  $('arb-status').textContent=invalidArb?'Use coordinates from −10000 to 10000 mm; left-side Y must be zero or negative.':arbReady?'All ARB points entered.':'Enter all four XYZ points to display the U-bar. Incomplete points can be saved.';
-  $('arb-legend').hidden=!arbEnabled||!arbReady;
+  $('arb-status').textContent=invalidArb?'Use coordinates from −10000 to 10000 mm; left-side Y must be zero or negative. Only complete valid XYZ points are previewed.':arbReady?'All ARB points entered and shown.':arbPreview.layoutComplete?'U-bar and both drop links shown. Chassis bearing location is unentered; its marker is optional for this preview and is not inferred.':arbPreview.enteredPointCount?`${arbPreview.enteredPointCount} of 4 left-side points shown, with their mirrored right-side points. Unentered: ${arbPreview.missingLabels.join(', ')}. Segments appear when both endpoints are entered; unknown coordinates stay blank.`:'Enter XYZ for any ARB point to preview it. The bar bend, lever-arm tip, and suspension pickup define the displayed bar and links; the bearing marker is optional. A checkbox alone does not define a location.';
+  $('arb-legend').hidden=!arbPreview.points.length;
   $('arb-viewer-note').hidden=!arbEnabled;
-  $('arb-viewer-note').textContent=arbReady?'U-bar ARB · static reference, including during bump and steering.':'U-bar ARB · enter all four XYZ points to preview.';
+  $('arb-viewer-note').textContent=arbReady?'U-bar ARB · static reference, including during bump and steering.':arbPreview.layoutComplete?'U-bar ARB · static bar and drop links. Bearing location unentered; no bearing marker inferred.':arbPreview.points.length?`U-bar ARB · partial static layout (${arbPreview.enteredPointCount}/4 left-side points). Unentered: ${arbPreview.missingLabels.join(', ')}. No missing geometry is inferred.`:'U-bar ARB · no complete XYZ points entered yet.';
   let hasVisibleObstacle=false;
   for(const {key,label} of OBSTACLE_TYPES) {
     const obstacle=design.obstacles?.[key],visible=obstacle?.visible===true,ready=obstacleComplete(obstacle,key);

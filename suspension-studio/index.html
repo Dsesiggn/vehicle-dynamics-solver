@@ -62,7 +62,7 @@
             <div class="subsection-heading">SPRING & DAMPER</div><div class="field-grid"><label class="field">Spring outer diameter<div class="number-wrap"><input id="spring-od" type="number" min="20" max="250" step="any"><span>mm</span></div></label><label class="field">Damper outer diameter<div class="number-wrap"><input id="damper-od" type="number" min="10" max="200" step="any"><span>mm</span></div></label></div>
             <div class="subsection-heading arb-heading">ANTI-ROLL BAR <label class="switch-label"><input id="arb-enabled" type="checkbox" aria-controls="arb-inputs" aria-expanded="false"> U-bar anti-roll bar</label></div>
             <div id="arb-inputs" hidden>
-              <p class="hint">Enter left-side points in mm: +X forward, +Y right, +Z down. The right side is mirrored across Y = 0. Leave unknown coordinates blank.</p>
+              <p class="hint">Enter left-side points in mm: +X forward, +Y right, +Z down. The right side is mirrored across Y = 0. Bar bend, lever-arm tip, and suspension pickup are sufficient to draw the bar and drop links. The chassis bearing location is optional for this preview. Leave unknown coordinates blank; each complete XYZ point is shown as entered.</p>
               <div id="arb-point-fields"></div>
               <p id="arb-status" class="hint" role="status"></p>
               <p class="hint">Static layout only. The suspension pickup is a reference point; ARB motion, stiffness, and forces are not calculated. Unchecking keeps your entered points.</p>
@@ -94,5 +94,5 @@
   <dialog id="library"><div class="dialog-heading"><div><span class="eyebrow">DESIGN LIBRARY</span><h2>Choose your starting point.</h2></div><button id="close-library" class="icon-button" aria-label="Close design library">×</button></div><p class="hint">Opening a design replaces the current draft. Save your changes first.</p><div id="presets"></div><h3 class="library-subtitle">Saved in this browser</h3><div id="saved-designs"></div><label class="button subtle import-label">↑ Import design JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label><p id="library-error" role="alert"></p></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   </div>
-  <script src="./src/startup.js?v=0.2.6"></script>
+  <script src="./src/startup.js?v=0.2.7"></script>
 </body></html>
