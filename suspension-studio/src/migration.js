@@ -1,4 +1,4 @@
-import { clone, validateDesign, hardpointLabel, newHeaveTravel, newInterferenceSettings } from './model.js?v=0.2.5';
+import { clone, validateDesign, hardpointLabel, newHeaveTravel, newInterferenceSettings } from './model.js?v=0.2.8';
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
 
 /** Pure, non-mutating import boundary. Never infer axes from coordinate signs. */
@@ -23,6 +23,13 @@ export function importDesign(value) {
   // explicit application default. A supplied malformed value is rejected below.
   if (design && typeof design === 'object' && !Object.hasOwn(design, 'heaveTravel')) design.heaveTravel = newHeaveTravel();
   if (design && typeof design === 'object' && !Object.hasOwn(design, 'interference')) design.interference = newInterferenceSettings();
+  // Width is a user-supplied tread measurement. Older designs provide no
+  // evidence for it; preserve their hardpoints and mark each width unknown.
+  if (design?.axles && typeof design.axles === 'object') {
+    for (const a of Object.values(design.axles)) {
+      if (a && typeof a === 'object' && !Array.isArray(a) && !Object.hasOwn(a,'tireTreadWidth')) a.tireTreadWidth = null;
+    }
+  }
   const errors = validateDesign(design);
   if (errors.length) throw Error(errors.join(' '));
   return { design, migrated };

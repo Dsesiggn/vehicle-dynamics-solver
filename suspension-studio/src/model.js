@@ -10,6 +10,8 @@ export const TOPOLOGIES = {
 export const clone = value => structuredClone(value);
 export const newHeaveTravel = () => ({ compression: 25.4, rebound: 25.4 });
 export const newInterferenceSettings = () => ({ linkOD: null });
+// Application edit bound in mm, not a physical tire limit. Null means unknown.
+export const TIRE_TREAD_WIDTH_MAX = 10000;
 export const title = value => value.replaceAll('-', ' ').replace(/^./, c => c.toUpperCase());
 // Display terminology is separate from stable v1/v2 JSON hardpoint identifiers.
 export function hardpointLabel(key) {
@@ -18,7 +20,7 @@ export function hardpointLabel(key) {
     .replaceAll('_', ' ').replace(/^(lca|uca)\b/, arm => arm.toUpperCase()));
 }
 export function axle(topology = 'double-wishbone', track = 1200, steered = true) {
-  const a = { topology, track, steered, actuation: topology === 'macpherson' ? 'direct' : 'pushrod', mounting: topology === 'macpherson' ? 'direct' : 'bell-crank', rackLength: 440, rackTravel: 60, springOD: 65, damperOD: 40, hardpoints: {} };
+  const a = { topology, track, tireTreadWidth: null, steered, actuation: topology === 'macpherson' ? 'direct' : 'pushrod', mounting: topology === 'macpherson' ? 'direct' : 'bell-crank', rackLength: 440, rackTravel: 60, springOD: 65, damperOD: 40, hardpoints: {} };
   a.hardpoints = generatePoints(a, 460); return a;
 }
 export function newDesign() {
@@ -87,6 +89,11 @@ export function validateDesign(d) {
     const a = d.axles[key]; if (!a || !Object.hasOwn(TOPOLOGIES,a.topology)) { errors.push(`${key}: invalid topology.`); continue; }
     errors.push(...validateAntiRollBar(a.antiRollBar).map(error => `${key}: ${error}`));
     number(a.track,600,3000,`${key} track`); number(a.rackLength,100,2500,`${key} rack length`); number(a.rackTravel,1,300,`${key} rack travel`); number(a.springOD,20,250,`${key} spring OD`); number(a.damperOD,10,200,`${key} damper OD`);
+    // Missing fields remain compatible with older v2 files; imports add null.
+    if (Object.hasOwn(a,'tireTreadWidth') && a.tireTreadWidth !== null &&
+        (!Number.isFinite(a.tireTreadWidth) || a.tireTreadWidth <= 0 || a.tireTreadWidth > TIRE_TREAD_WIDTH_MAX)) {
+      errors.push(`${key} tire tread width must be blank or greater than 0 and no more than ${TIRE_TREAD_WIDTH_MAX} mm.`);
+    }
     if (typeof a.steered !== 'boolean') errors.push(`${key}: steering must be true or false.`);
     if (!['pushrod','pullrod','direct'].includes(a.actuation) || a.mounting !== (a.actuation === 'direct' ? 'direct' : 'bell-crank') || a.topology === 'macpherson' && a.actuation !== 'direct') errors.push(`${key}: incompatible actuation and mounting.`);
     if (a.springOD <= a.damperOD) errors.push(`${key}: spring OD must be greater than damper OD.`);

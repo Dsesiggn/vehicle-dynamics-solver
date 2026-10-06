@@ -1,5 +1,5 @@
 import { mirrorPoint, mirrorRotation, alignmentFromAxis } from './coordinates.js';
-import { linkPairs, isMoving } from './model.js?v=0.2.3';
+import { linkPairs, isMoving } from './model.js?v=0.2.8';
 export const add = (a,b) => a.map((v,i)=>v+b[i]);
 export const sub = (a,b) => a.map((v,i)=>v-b[i]);
 export const scale = (a,s) => a.map(v=>v*s);

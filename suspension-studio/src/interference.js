@@ -1,5 +1,5 @@
-import { linkPairs, hardpointLabel } from './model.js?v=0.2.5';
-import { solveAxle, sub } from './solver.js?v=0.2.3';
+import { linkPairs, hardpointLabel } from './model.js?v=0.2.8';
+import { solveAxle, sub } from './solver.js?v=0.2.8';
 import { OBSTACLE_TYPES, obstacleComplete, obstacleMesh } from './obstacles.js?v=0.2.5';
 import { segmentMeshDistance, segmentSegmentDistance } from './geometry-distance.js?v=0.2.5';
 

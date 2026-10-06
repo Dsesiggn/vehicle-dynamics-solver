@@ -40,6 +40,10 @@ Verification covers nullable input persistence, malformed-data rejection, compat
 
 The capsule/convex-solid distance checks are not attributed to a supplied vehicle-dynamics book: they apply Euclidean computational geometry to the existing suspension solver's solved hardpoint positions. No force, tire, compliance, spring-rate, damper-rate, or measured-vehicle model is introduced. The assumptions and formulas are recorded in [INTERFERENCE.md](INTERFERENCE.md). Regression tests are software checks against analytic synthetic distances and do not validate clearances on a real vehicle or CAD assembly.
 
+## Tire tread-width rendering
+
+The optional tire tread-width preview uses original Euclidean circle/band geometry, with the user's confirmed tread-width definition. It does not adopt a tire equation from the supplied books. Its assumptions, dimensions, exact bounding construction and numerical cross-checks are recorded in [TIRE-TREAD.md](TIRE-TREAD.md). This is rendering geometry only; the book catalog and these software checks do not establish a measured tire profile or physical packaging validity.
+
 ## Local source lookup
 
 The supplied PDFs are in the user's `CR.FSAE/Literature` directory. Match by the book titles above. Do not copy that directory into the app or include it in an upload. On another machine, request the needed source if it is unavailable rather than claiming it was checked.

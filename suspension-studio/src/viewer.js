@@ -1,9 +1,10 @@
 import { mirrorPoint, toDisplay } from './coordinates.js';
-import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.5';
-import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.3';
+import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.8';
+import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.8';
 import {arbPreviewGeometry} from './arb.js?v=0.2.7';
 import {OBSTACLE_TYPES,obstacleMesh} from './obstacles.js?v=0.2.5';
-import {memberSegmentId} from './interference.js?v=0.2.5';
+import {memberSegmentId} from './interference.js?v=0.2.8';
+import {tireTreadGeometry} from './tire-geometry.js?v=0.2.8';
 const PALETTES={
   light:{arb:'#448272',arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af',engine:'#b57a2a',differential:'#39769b',cockpit:'#80558e',interference:'#d21f2b'},
   dark:{arb:'#92d4bf',arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3',engine:'#f0bd70',differential:'#82c8eb',cockpit:'#d5a6e7',interference:'#ff716c'},
@@ -24,7 +25,9 @@ export class SuspensionViewer {
     this.axle=a;this.diameter=diameter;this.motion=motion;this.context=context;
     const current=new Set(OBSTACLE_TYPES.filter(({key})=>context.obstacles?.[key]?.visible&&obstacleMesh(context.obstacles[key],key,context.activeAxle,context.wheelbase)).map(({key})=>key));
     const arbPreview=arbPreviewGeometry(a.antiRollBar),arbSignature=JSON.stringify(arbPreview.points.map(({key,position})=>[key,position]));
-    if([...current].some(key=>!this.visibleObstacleKeys.has(key))||arbPreview.points.length&&arbSignature!==this.lastArbSignature||this.lastAxle&&this.lastAxle!==context.activeAxle&&(current.size||arbPreview.points.length)){this.fitMode=true;this.zoom=1;}
+    const treadWidth=a.tireTreadWidth??null,treadWidthChanged=treadWidth!==this.lastTireTreadWidth&&(treadWidth!==null||this.lastTireTreadWidth!=null);
+    if(treadWidthChanged||[...current].some(key=>!this.visibleObstacleKeys.has(key))||arbPreview.points.length&&arbSignature!==this.lastArbSignature||this.lastAxle&&this.lastAxle!==context.activeAxle&&(current.size||arbPreview.points.length)){this.fitMode=true;this.zoom=1;}
+    this.lastTireTreadWidth=treadWidth;
     this.lastArbSignature=arbSignature;
     this.lastAxle=context.activeAxle;
     this.visibleObstacleKeys=current;this.draw();
@@ -42,8 +45,8 @@ export class SuspensionViewer {
       const solved=this.motion?.ok?(side===-1?this.motion.left:this.motion.right):null;
       const points=solved?.points||Object.fromEntries(Object.entries(a.hardpoints).map(([key,value])=>[key,side===-1?value:mirrorPoint(value)]));
       localPoints.push(...Object.values(points));
-      const wheel=points.wheel_center,radius=this.diameter/2+85;
-      for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])localPoints.push(add(wheel,[x*radius,y*radius,z*radius]));
+      const tire=tireTreadGeometry(points.wheel_center,rotate([0,side,0],solved?.rotation||[0,0,0]),this.diameter,a.tireTreadWidth??null);
+      if(tire)for(const x of [0,1])for(const y of [0,1])for(const z of [0,1])localPoints.push([x?tire.bounds.max[0]:tire.bounds.min[0],y?tire.bounds.max[1]:tire.bounds.min[1],z?tire.bounds.max[2]:tire.bounds.min[2]]);
     }
     const arbPreview=arbPreviewGeometry(a.antiRollBar);
     localPoints.push(...arbPreview.points.map(({position})=>position));
@@ -64,10 +67,13 @@ export class SuspensionViewer {
     const line=(points,color,width=2,alpha=1)=>objects.push({depth:points.reduce((sum,p)=>sum+project(p)[2],0)/points.length,render:()=>drawLine(points,color,width,alpha)});
     const checkedColor=id=>this.context?.highlightSegments?.has(id)?colors.interference:null;
     const point=(p,label,color=colors.point,radius=2.6)=>objects.push({depth:project(p)[2]+1,render:()=>{const [x,y]=project(p);c.beginPath();c.arc(x,y,radius,0,Math.PI*2);c.fillStyle=colors.pointFill;c.fill();c.strokeStyle=color;c.lineWidth=1.2;c.stroke();if(this.labels){c.fillStyle=colors.label;c.font='7px system-ui';c.fillText(label,x+5,y-5);}}});
-    const cylinder=(p1,p2,radius,color)=>{
-      const axis=unit(sub(p2,p1)),v=unit(cross(axis,Math.abs(axis[2])>.9?[1,0,0]:[0,0,1])),u=cross(axis,v);
-      const ring=(p,r)=>Array.from({length:33},(_,i)=>add(p,add(scale(v,r*Math.cos(i*Math.PI/16)),scale(u,r*Math.sin(i*Math.PI/16)))));
-      line(ring(p1,radius),color,1.2,.75);line(ring(p2,radius),color,1.2,.75);
+    const ring=(p,axis,radius)=>{
+      const v=unit(cross(axis,Math.abs(axis[2])>.9?[1,0,0]:[0,0,1])),u=cross(axis,v);
+      return Array.from({length:33},(_,i)=>add(p,add(scale(v,radius*Math.cos(i*Math.PI/16)),scale(u,radius*Math.sin(i*Math.PI/16)))));
+    };
+    const cylinder=(p1,p2,radius,color,knownAxis=null)=>{
+      const axis=knownAxis||unit(sub(p2,p1)),v=unit(cross(axis,Math.abs(axis[2])>.9?[1,0,0]:[0,0,1])),u=cross(axis,v);
+      line(ring(p1,axis,radius),color,1.2,.75);line(ring(p2,axis,radius),color,1.2,.75);
       for(let i=0;i<8;i++) {const offset=add(scale(v,radius*Math.cos(i*Math.PI/4)),scale(u,radius*Math.sin(i*Math.PI/4)));line([add(p1,offset),add(p2,offset)],color,.7,.35);}
     };
     for(const side of [-1,1]) {
@@ -100,8 +106,12 @@ export class SuspensionViewer {
       const helix=Array.from({length:161},(_,i)=>{const t=i/160;return add(add(damperStart,scale(sub(damperEnd,damperStart),.12+.7*t)),add(scale(v,a.springOD/2*Math.cos(t*Math.PI*16)),scale(u,a.springOD/2*Math.sin(t*Math.PI*16))));});
       line(helix,colors.actuator,1.4);
       const wheelAxis=rotate([0,side,0],solved?.rotation||[0,0,0]),wc=p.wheel_center;
-      cylinder(add(wc,scale(wheelAxis,-65)),add(wc,scale(wheelAxis,65)),this.diameter/2,colors.tire);
-      cylinder(add(wc,scale(wheelAxis,-50)),add(wc,scale(wheelAxis,50)),this.diameter*.28,colors.rim);
+      const tire=tireTreadGeometry(wc,wheelAxis,this.diameter,a.tireTreadWidth??null);
+      // Use the known axis even if a very small positive width rounds the edge centers together.
+      if(tire?.widthKnown)cylinder(...tire.edgeCenters,tire.radius,colors.tire,tire.axis);
+      else if(tire)line(ring(wc,tire.axis,tire.radius),colors.tire,1.2,.75);
+      // The existing concentric rim cue is illustrative, without an inferred rim width.
+      line(ring(wc,wheelAxis,this.diameter*.28),colors.rim,1.2,.75);
       line([add(wc,scale(wheelAxis,-85)),add(wc,scale(wheelAxis,85))],colors.upright,1);
       for(const [key,value] of Object.entries(p))point(value,hardpointLabel(key));
     }

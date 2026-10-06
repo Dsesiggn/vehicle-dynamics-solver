@@ -1,10 +1,10 @@
-import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.5';
-import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel} from './model.js?v=0.2.5';
-import {solveAxle} from './solver.js?v=0.2.3';
-import {SuspensionViewer} from './viewer.js?v=0.2.7';
+import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.8';
+import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel,TIRE_TREAD_WIDTH_MAX} from './model.js?v=0.2.8';
+import {solveAxle} from './solver.js?v=0.2.8';
+import {SuspensionViewer} from './viewer.js?v=0.2.8';
 import {ARB_POINTS,newAntiRollBar,arbComplete,arbPreviewGeometry} from './arb.js?v=0.2.7';
 import {OBSTACLE_TYPES,newObstacles,obstacleComplete} from './obstacles.js?v=0.2.5';
-import {evaluateHeavePosition,scanHeaveTravel} from './interference.js?v=0.2.5';
+import {evaluateHeavePosition,scanHeaveTravel} from './interference.js?v=0.2.8';
 const $=id=>document.getElementById(id);
 let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,heavePosition=0,heavePreviewActive=false,lastHeaveScan=null,toastTimer,dirty=false;
 try {
@@ -21,6 +21,7 @@ function resetMotion() {bump=0;rack=0;heavePosition=0;heavePreviewActive=false;$
 function fields() {
   const a=design.axles[active];
   $('design-name').value=design.name;$('wheelbase').value=design.wheelbase;$('wheel-diameter').value=design.wheelDiameter;
+  $('tire-width').value=a.tireTreadWidth??'';$('tire-width').max=TIRE_TREAD_WIDTH_MAX;$('tire-width').setCustomValidity('');
   $('heave-compression').value=design.heaveTravel.compression;$('heave-rebound').value=design.heaveTravel.rebound;
   heavePosition=Math.max(-design.heaveTravel.rebound,Math.min(design.heaveTravel.compression,heavePosition));
   $('link-od-fields').innerHTML=`<label class="field">Shared suspension link OD <div class="number-wrap"><input id="link-od" data-link-od="true" type="number" min="0.001" step="any" value="${design.interference.linkOD??''}" placeholder="mm" aria-label="Shared suspension link outer diameter"></div></label><p class="hint">Use the largest link OD in the real design. The same conservative OD is applied to suspension links, pushrods/pullrods, and bell-crank arms. Leave blank until known.</p>`;
@@ -78,7 +79,7 @@ function renderHeaveStatus(errors, current, invalidInputLabel='') {
 }
 function update() {
   const a=design.axles[active],errors=validateDesign(design);
-  const invalidInput=[...document.querySelectorAll('input[type=number]')].find(input=>!input.disabled&&(!(input.dataset.arbPoint||input.dataset.obstacleField||input.dataset.linkOd)&&input.value===''||!input.checkValidity()));
+  const invalidInput=[...document.querySelectorAll('input[type=number]')].find(input=>!input.disabled&&(!(input.dataset.arbPoint||input.dataset.obstacleField||input.dataset.linkOd||input.dataset.tireWidth)&&input.value===''||!input.checkValidity()));
   const invalidField=!!invalidInput,invalidInputLabel=invalidInput?(invalidInput.getAttribute('aria-label')||title(invalidInput.id||'numeric input')):'';
   if(invalidField)lastHeaveScan=null;
   const kinematicResult=errors.length||invalidField?null:solveAxle(a,bump,rack);
@@ -93,6 +94,7 @@ function update() {
   $('viewer-axle').textContent=`${active.toUpperCase()} AXLE`;$('viewer-topology').textContent=TOPOLOGIES[a.topology].name;$('viewer-detail').textContent=invalidField?'Invalid input · Last accepted static geometry':`${title(a.actuation)} · ${title(a.mounting)}`;
   $('stat-track').innerHTML=`${a.track.toLocaleString(undefined,{maximumFractionDigits:1})} <span>mm</span>`;
   $('stat-points').textContent=Object.keys(a.hardpoints).length;$('stat-solver').textContent=TOPOLOGIES[a.topology].solver;
+  $('tire-viewer-note').textContent=a.tireTreadWidth>0?`${a.tireTreadWidth} mm tread width · Ideal circular tread band. Tire section width and sidewall profile are not defined.`:'Tread width unentered · Showing the outer-diameter circle only; no tread width is assumed.';
   const arbEnabled=a.antiRollBar?.enabled===true,arbReady=arbComplete(a.antiRollBar),arbPreview=arbPreviewGeometry(a.antiRollBar);
   const invalidArb=[...$('arb-point-fields').querySelectorAll('input')].find(input=>!input.validity.valid);
   $('arb-status').classList.toggle('error',!!invalidArb);
@@ -146,6 +148,11 @@ for(const [id,key] of Object.entries({'track':'track','rack-length':'rackLength'
   if(key==='track')$('rack-length').value=Number(a.rackLength.toFixed(3));
 });
 $('steered').addEventListener('change',()=>{design.axles[active].steered=$('steered').checked;resetMotion();markDirty();fields();update();});
+$('tire-width').addEventListener('input',()=>{
+  const input=$('tire-width');input.setCustomValidity(input.value!==''&&Number(input.value)<=0?'Tire tread width must be greater than 0 mm.':'');
+  markDirty();if(!input.checkValidity()){update();return;}
+  design.axles[active].tireTreadWidth=input.value===''?null:Number(input.value);update();
+});
 $('arb-enabled').addEventListener('change',()=>{
   const a=design.axles[active];a.antiRollBar??=newAntiRollBar();a.antiRollBar.enabled=$('arb-enabled').checked;
   markDirty();renderARB();update();

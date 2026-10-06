@@ -31,6 +31,16 @@ Saved libraries belong to the browser and web origin. The hosted app and a local
 
 Use the **Dark mode** switch in the top bar to change the full workspace, including the 3D viewer. The switch supports keyboard activation and exposes its state to assistive technology. The app starts in light mode and remembers your explicit choice in this browser on this site. Theme preferences are separate from saved vehicle designs. If browser storage is unavailable, switching still works for the current page.
 
+## Tire tread width
+
+Enter **Tire tread width** under the selected axle's configuration, in millimeters. Front and rear values are independent. This is the user's confirmed tread-width definition, not overall mounted section width. New designs and presets start blank because their tread widths are unknown. Clearing the input restores that unknown state. Values must be greater than zero and no greater than 10000 mm; the upper bound is an editor limit, not a physical suitability criterion.
+
+The preview draws an ideal circular tread band centered on each solved wheel center. Its radius is half the existing vehicle-level **Wheel diameter**, interpreted as tire outer diameter. Its two edge centers are `C − aW/2` and `C + aW/2`, where `C` is the wheel center in axle-local SAE millimeters, `a` is the unit wheel axis, and `W` is the entered tread width in millimeters. The existing static wheel axis is lateral; solved upright rotation carries that axis during motion. Width and diameter alone do not determine sidewall shape, shoulder curvature, loaded deflection, section width, or rim dimensions. The concentric inner circle remains an illustrative rim cue with no assigned rim width.
+
+When width is unknown, only the center-plane outer-diameter circle is drawn; no fixed width is substituted. **Fit all** includes the tread edges when known. Editing width preserves hardpoints and the current solved pose. Tire geometry remains outside the heave interference checker. Saved/exported v2 JSON stores the optional `axles.front/rear.tireTreadWidth`; imports of older v1/v2 designs without it receive `null`, not a measured value.
+
+This rendering construction uses Euclidean geometry, not a tire-force or contact model from the supplied books. Edge separation, midpoint, reflection, bounds and unchanged solver output are checked in software. No measured tire or CAD profile has been used for physical validation. See [the geometric method](docs/TIRE-TREAD.md) for the assumptions and cross-checks.
+
 ## U-bar anti-roll bar inputs
 
 Enable **U-bar anti-roll bar** under the selected axle's configuration to enter four left-side XYZ points: chassis bearing center, bar bend, lever-arm tip/drop-link joint, and suspension drop-link pickup. All coordinates use the same axle-local SAE frame and millimeter units as the suspension. No coordinates are generated: blank components remain `null`, and incomplete drafts can be saved/exported. Disabling the checkbox hides the inputs and preview while retaining the points. Front and rear are independent.
@@ -72,7 +82,7 @@ The geometric equations are Euclidean segment/solid distances, not equations att
 - Increasing wheel diameter moves all points toward negative Z by the radius difference. Wheelbase is stored for future vehicle assembly; the rear datum will be at X = −wheelbase relative to the front datum. It does not alter this isolated axle preview.
 - Bump is positive upward (negative Z). Rack displacement is positive rightward (+Y); rack travel is total lock-to-lock stroke. Fixed toe links remain constraints when steering is disabled.
 - Version 2 JSON declares axes, frame and units. Original version 1 files and saved libraries are converted automatically; original v1 browser storage is retained. Unknown coordinate metadata is rejected. Save or export to retain a converted v2 design.
-- Spring/damper OD controls the rendered packaging envelopes; the damper OD is also used in heave interference checks. The fixed 130 mm wheel width is illustrative. See the declared check scope and limitations above.
+- Spring/damper OD controls the rendered packaging envelopes; the damper OD is also used in heave interference checks. Tire tread width controls the optional tread-band preview and is excluded from interference checks. See the declared scopes and limitations above.
 
 ## Architecture
 
@@ -83,6 +93,7 @@ The geometric equations are Euclidean segment/solid distances, not equations att
 - `src/interference.js` and `src/geometry-distance.js`: heave pose sampling, rigid member/damper centerlines, capsule clearances to convex obstacle solids and other segments, and contact-boundary refinement.
 - `src/solver.js`: numerical rigid-body position solver, independent from DOM/rendering.
 - `src/viewer.js`: interactive canvas rendering of projected 3D geometry, orbit/zoom, orthographic camera views. No CDN/WebGL dependency.
+- `src/tire-geometry.js`: optional circular tread-band edge centers and exact axis-aligned bounds, independent of the suspension solver.
 - `src/app.js`: editor, state transitions, local persistence, imports/exports.
 - `src/theme.js`: applies the saved appearance before first paint and handles the accessible theme switch.
 - `tests/*.test.mjs`: numerical, migration, physical-pose and schema regressions, run using Node 20+ with `node --test suspension-studio/tests/*.test.mjs` from the repository root.

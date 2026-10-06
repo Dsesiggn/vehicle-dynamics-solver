@@ -33,7 +33,7 @@
   }
 
   // Resolution means the module graph loaded and app.js finished initializing.
-  import('./app.js?v=0.2.7').then(() => {
+  import('./app.js?v=0.2.8').then(() => {
     element('studio-workspace').removeAttribute('inert');
     panel.hidden = true;
     document.documentElement.dataset.studioState = 'ready';
