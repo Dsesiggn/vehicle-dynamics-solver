@@ -84,6 +84,14 @@ The geometric equations are Euclidean segment/solid distances, not equations att
 - Version 2 JSON declares axes, frame and units. Original version 1 files and saved libraries are converted automatically; original v1 browser storage is retained. Unknown coordinate metadata is rejected. Save or export to retain a converted v2 design.
 - Spring/damper OD controls the rendered packaging envelopes; the damper OD is also used in heave interference checks. Tire tread width controls the optional tread-band preview and is excluded from interference checks. See the declared scopes and limitations above.
 
+## Steering geometry tool
+
+Open [Steering geometry](steering.html) from the workspace navigation. This separate tool solves rack-and-pinion steering with suspension held at a defined ride position. Enter wheelbase, independent front/rear tracks, signed rack travel per steering-wheel revolution, total rack stroke, sweep range, both steering-axis points and both tie-rod joints per side, wheel-center Z, static toe and static camber. Dimensions and angles begin unknown; the explicitly selected synthetic example is not vehicle data. Left/right geometry is independent, with an explicit mirror action if appropriate.
+
+The tool uses spatial rigid-axis rotation and constant tie-rod length to calculate left/right wheel heading, inside/outside turn angles and steering-induced toe at every 5° of steering-wheel input. Its top view and curves compare actual linkage behavior with the nominal zero-slip Ackermann target. CSV exports the sweep; versioned JSON transfers geometry; browser save retains a separate steering draft without changing suspension designs. Complete derivation, source-page evidence, numerical safeguards and validation limits are in [STEERING.md](docs/STEERING.md).
+
+The model excludes suspension travel, compliance, backlash, tire slip and forces. Tilted-axis wheel-center movement is geometric only: no road-contact or chassis-jacking solve is imposed. A geometry result is not an optimized setup or measured-vehicle validation. Rear track controls the rear layout; it does not enter the ideal front-angle relation for unsteered rear wheels.
+
 ## Architecture
 
 - `src/coordinates.js`: SAE frame definitions, reflection and alignment signs; `src/migration.js`: versioned import and saved-library conversion.

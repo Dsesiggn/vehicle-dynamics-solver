@@ -1518,3 +1518,7 @@ dialog::backdrop {
 :root[data-theme="dark"] .legend i.engine {background:#f0bd70;}
 :root[data-theme="dark"] .legend i.differential {background:#82c8eb;}
 :root[data-theme="dark"] .legend i.cockpit {background:#d5a6e7;}
+
+/* Keep the tools reachable when the desktop sidebar is hidden. */
+.mobile-tool-link {display:none;}
+@media(max-width:1000px){.mobile-tool-link {display:inline-flex;margin-bottom:20px;}}

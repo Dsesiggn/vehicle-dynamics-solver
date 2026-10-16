@@ -7,11 +7,22 @@ Cataloging a book does not mean every chapter has been reviewed or that the curr
 | ID | Supplied reference | Intended use | Review status for this change |
 | --- | --- | --- | --- |
 | SEWARD | Derek Seward, *Race Car Design*, 2014. Supplied scan identifies Palgrave as first publisher. | Suspension architecture, springs/dampers/anti-roll bars, steering, design workflow. | Publication page and contents inspected. Chapter 4 §4.4.1 and Figure 4.11 visually inspected for U-bar components (see notes below); no stiffness equations adopted. |
-| MILLIKEN | William F. Milliken & Douglas L. Milliken, *Race Car Vehicle Dynamics*. Supplied filename is dated 1997; verify edition from publication page when citing. | Suspension kinematics, handling, load transfer, tire/vehicle axis interfaces. | Chapter 4 Sections 4.1–4.3 text reviewed, printed pp. 114–120 / PDF pp. 76–79, for axes, origins, steer and force conventions. |
+| MILLIKEN | William F. Milliken & Douglas L. Milliken, *Race Car Vehicle Dynamics*. Publication page visually verified: copyright 1995, SAE, ISBN 1-56091-526-9, fifth printing; date of this printing not shown. Filename 1997 is not used as an edition statement. | Suspension kinematics, handling, load transfer, tire/vehicle axis interfaces. | Chapter 4 Sections 4.1–4.3 text reviewed, printed pp. 114–120 / PDF pp. 76–79, for axes, origins, steer and force conventions. |
 | SMITH | Carroll Smith, *Tune to Win*, Aero Publishers, 1978. | Setup interpretation, tuning, practical cross-checks and test planning. | Title/publication pages inspected; Chapter 6 printed pp. 67–68 visually inspected for anti-roll-bar mounts and links (see notes below). |
 | GILLESPIE | Thomas D. Gillespie, *Fundamentals of Vehicle Dynamics*, Society of Automotive Engineers. | Vehicle reference frames, equations of motion, ride, handling, braking and loads. | Chapter 1, printed pp. 8–10 / PDF pp. 24–26, read; axis diagram and force/rotation page visually inspected. Primary supplied-book basis for this coordinate change. |
 | PACEJKA | Hans B. Pacejka, *Tyre and Vehicle Dynamics*. Edition pending verification in supplied copy. | Tire slip, force/moment, combined-slip and transient models, with explicit dataset sign adapters. | Title page visually inspected. Extracted body text has a broken character mapping; equations must be visually read or OCR-checked before implementation. No tire model added in this change. |
 | HAYNES-SUSPENSION | *Competition Car Suspension*, Haynes (as identified by supplied filename). Author/edition pending verification; available scan begins with contents/chapter material. | Suspension layout, spring/damper installation, packaging and practical geometry checks. | Opening chapter pages visually inspected (PDF pp. 3–4, printed pp. 13–14). Image-only scan; cataloged for later focused reading. |
+
+## Steering reference review
+
+The standalone [steering tool method](STEERING.md) records the original rigid-link derivation, exact page evidence, sign conversions, source discrepancies and validation results. The steering review uses Seward Chapter 6 (printed pp.154–163 / PDF pp.165–174), Smith Chapter 5 (printed pp.60–61 / PDF pp.59–60), and the following two additional documents supplied for this tool:
+
+- Dale Thompson, Racing Car Technology, *Ackerman? Or not? Does it matter?*, supplied `Steering_Ackerman by Thompson.pdf`, pp.1–2 visually inspected. Its Figure 1 angle formulas omit arctangent; the tool derives exact finite-angle geometry instead. Its arm-line percentage is not interchangeable with the tool's explicitly defined cotangent percentage.
+- Autek, *Principles of Steering Geometry*, supplied `PrincipOfSteeringGeometry.pdf`, pp.11 and 13 visually inspected for toe sign, steering-angle difference and ideal wheel-normal intersection. Publication date/edition have not been established.
+
+Milliken Chapter 5 §5.3 (printed pp.128–129 / PDF p.83) and Chapter 19 §§19.1–19.3 (printed pp.710–718 / PDF pp.375–379) were visually inspected for zero-slip geometry, inclined steering axes, Ackermann approximation, c-factor and measured steer-steer testing. A reciprocal-sense inconsistency between its ratio definition and approximate formula is recorded in STEERING.md; the calculator does not adopt that formula.
+
+Seward Table 6.2, printed p.163 / PDF p.174, is an independent numerical benchmark for the ideal angle relation. No typical dimensions, steering ratio or tire slip recommendation is adopted as measured vehicle data. Tire models from Pacejka and chassis/suspension design guidance from the other cataloged books are not claimed as implemented or verified by this steering review.
 
 ## Using this library for a new module
 
