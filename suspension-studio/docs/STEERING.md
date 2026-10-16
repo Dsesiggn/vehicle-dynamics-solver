@@ -29,6 +29,32 @@ All a,b,c have units mm². With R=hypot(a,b), roots exist only when |c|<=R; R=0 
 
 Wheel center and spindle use the same axis rotation (Rodrigues formula), not a separate prescribed road-wheel ratio. Heading is then extracted from the rotated wheel plane as above. Link closure residual in mm is checked independently after rotation. This derivation is Euclidean rigidity, not a copied algorithm or an equation claimed to be supplied by a book.
 
+## Tie-rod / effective steering-arm construction (derived before implementation)
+
+At each selected pose let O be the outer tie-rod ball center and I the inner center. The effective steering arm is the perpendicular radius from the steering axis to O, not the shape of a cast/bent arm and not a segment to an arbitrarily chosen upper or lower joint. With the same axis unit vector k as above, its axis foot is C=U+k[k·(O-U)]. This is the center of the outer joint's rotation circle; (O-C)·k=0. Its position is invariant under a different choice of points on the same axis.
+
+The included angle **at O** uses rays a=C-O (toward the axis) and b=I-O (toward the rack). From Euclidean dot and cross products,
+
+    angle_3D = atan2(|a × b|, a · b) × 180/pi.
+
+Both arguments have units mm²; the displayed unsigned angle is in [0,180] degrees. The spatial result is labeled effective 3D angle β. The separate conventional plan angle α uses the steering-axis point at the outer ball height, defined below; it is not generally the projection of β. Canvas arcs represent only α; readouts explicitly distinguish both constructions. Neither angle is a spherical-joint articulation limit, and 90 degrees in 3D alone is not a general criterion for maximum steering leverage about an inclined axis.
+
+For the conventional top-view construction, Milliken Figure 19.3 (printed p.714 / PDF p.377) locates the kingpin axis at the outer tie-rod ball height. Define K=U+k*(O_Z-U_Z)/k_Z. K and O share Z. The displayed plan angle α is the included angle between XY(K-O) and XY(I-O), using the same dot/cross formula. For inclined axes K generally differs from perpendicular foot C; these are deliberately separate definitions. A horizontal axis does not supply a unique K, so this construction is unavailable.
+
+For v_L=O_L-K_L, v_R=O_R-K_R (XY components), solve the infinite construction lines K_L+lambda*v_L=K_R+mu*v_R with the scalar 2D cross product:
+
+    lambda = cross2(K_R-K_L,v_R)/cross2(v_L,v_R)
+    P = K_L + lambda*v_L
+    rear_axle_offset = P_X + L.
+
+P_X and P_Y are front-axle-local mm (+X forward, +Y right). Positive rear-axle offset means ahead of X=-L. This is a **projection intersection**; its placeholder Z=0 is not a spatial intersection or ground contact. Finite intersection coordinates are reported even outside the current view; an explicit Fit intersection control includes them in the view. Parallel, coincident and degenerate projections have no unique reported intersection. Failed steering poses explicitly show static construction only; CSV leaves their construction outputs blank.
+
+Source basis: Seward §6.3.1, printed pp.162–163 / PDF pp.173–174, Smith Chapter 5 printed p.60 / PDF p.59, and Milliken §19.2 printed pp.713–716 / PDF pp.376–378 describe conventional steering-arm convergence as an approximation. The overlay uses the ball-height construction explicitly labeled in Milliken Figure 19.3. The separate spatial perpendicular-foot definition and dot/cross derivation above are explicit project definitions, not equations attributed to those sources. Steering-arm intersection is not the wheel-normal instantaneous turn center, does not by itself establish ideal Ackermann, and does not define the tool's cotangent Ackermann percentage. No tire-slip model or real-arm shape is inferred.
+
+Construction numerical choices (not physical limits): use normalized vectors for angle and line-cross calculations. A plan construction is unavailable when |k_Z|≤1e-10. Lines are parallel within numerical tolerance when the cross product of their XY unit directions has magnitude≤1e-10; coincident additionally requires perpendicular separation≤1e-10 times the maximum of their projected arm lengths and axis-point separation. Angle ray lengths≤1e-12 times the larger radius/tie length are unresolved; a projected rod length≤1e-12 of its spatial length is unresolved. Nonfinite values remain unavailable. The perpendicular radius is evaluated by the equivalent k×(r×k), using the nearer axis endpoint. A radius≤32 times machine epsilon times the norm of the component product-sums in r×k is rejected as unresolved roundoff before forming any arm line. This prevents an on-axis outer joint from producing an artificial intersection. These guards are numerical resolution choices, not a vehicle geometry recommendation; no finite physical intersection is clamped to the viewport.
+
+Construction checks performed: 14 automated cases include known 90°/135° angles, independent inclined-axis geometry, finite/parallel/coincident/undefined lines, scale/translation and reflection, extended steering-axis endpoints, on-axis roundoff, and neutral/moving/failed solver poses. A separate hand calculation for U=[30,-530,-450], B=[-10,-560,-150], O=[-100,-520,-250], I=[-100,-250,-250] mm gives α=106.189206257027° and β=106.856448253359°; the browser shows 106.19° and 106.86°. The synthetic symmetric example has neutral intersection X=-1833.333333 mm, Y=0, 233.333333 mm behind the nominal rear axle. At +180° wheel input its plan angles are left 89.085304° / right 128.505304° and its intersection is [-1549.802999,-549.467024] mm; reversing input swaps the angles and reflects Y. These are mathematical/software checks, not physical vehicle measurements.
+
 ## Exact nominal zero-slip Ackermann benchmark
 
 For a planar reference vehicle with straight rear wheels and zero lateral tire slip, the velocity at each wheel must lie in its wheel plane. Therefore the wheel-normal lines pass through the instantaneous turn center on the rear axle extension. For a turn-center distance R_turn from the vehicle center plane and positive inside/outside angle magnitudes,

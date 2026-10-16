@@ -66,6 +66,31 @@
 .steering-empty span {font-size:12px;line-height:1.8;color:var(--muted);max-width:340px;}
 .steering-legend {display:flex;justify-content:center;gap:21px;flex-wrap:wrap;padding:15px 18px 8px;font-size:10px;color:var(--muted);}
 .steering-view-controls {padding:10px 18px 0;display:flex;justify-content:flex-end;}
+.steering-view-controls {gap:8px;flex-wrap:wrap;}
+.steering-overlay-controls {display:flex;align-items:center;justify-content:flex-end;gap:19px;padding:13px 20px 0;flex-wrap:wrap;}
+.steering-overlay-controls .switch-label {font-size:10px;}
+.steering-construction {margin:0 23px 20px;padding-top:17px;border-top:1px solid var(--border);}
+.steering-construction-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:13px;}
+.steering-construction-heading h3 {font-size:12px;font-weight:500;margin:0;}
+.steering-construction-state {font-size:9px;color:var(--muted);}
+.steering-construction-state.unavailable {color:var(--steering-ideal);}
+.steering-construction-grid {display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:10px;}
+.steering-construction-card {border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--steering-bg);min-width:0;}
+.steering-construction-card h4 {font-size:9px;font-weight:500;line-height:1.5;margin:0 0 10px;color:var(--muted);}
+.steering-construction-card.left {border-top:2px solid var(--steering-left);}
+.steering-construction-card.right {border-top:2px solid var(--steering-right);}
+.steering-construction-card.intersection {border-top:2px solid var(--steering-ideal);}
+.steering-construction-angles,.steering-intersection-coordinates {display:flex;gap:13px;flex-wrap:wrap;margin:0;}
+.steering-construction-angles dt,.steering-intersection-coordinates dt {font-size:9px;color:var(--muted);line-height:1.5;margin:0 0 3px;}
+.steering-construction-angles dd {font-size:17px;font-variant-numeric:tabular-nums;letter-spacing:-.4px;color:var(--steering-text);margin:0;}
+.steering-construction-angles dd small,.steering-intersection-coordinates dd small {font-size:10px;color:var(--muted);letter-spacing:0;margin-left:2px;}
+.steering-intersection-coordinates dd {font-size:12px;font-variant-numeric:tabular-nums;color:var(--steering-text);margin:0;}
+.steering-intersection-offset {font-size:10px;font-variant-numeric:tabular-nums;color:var(--muted);margin:7px 0 0;line-height:1.5;}
+.steering-construction-unavailable {font-size:10px;color:var(--muted);margin:0;line-height:1.7;}
+.steering-construction-definitions {margin-top:12px;font-size:10px;line-height:1.7;color:var(--muted);}
+.steering-construction-definitions summary {cursor:pointer;color:var(--accent);}
+.steering-construction-definitions p {margin:8px 0 0;}
+.steering-legend .legend-arms {border-color:var(--steering-ideal);border-top-style:dotted;}
 .steering-view-controls .button {padding:6px 9px;font-size:10px;}
 .steering-legend>span {display:flex;align-items:center;gap:7px;}
 .steering-legend i {display:inline-block;width:17px;border-top:2px solid var(--steering-left);}
@@ -94,7 +119,7 @@
 .steering-chart-choice select {max-width:270px;font-size:11px;padding:8px 10px;}
 .steering-table-panel {margin-top:24px!important;}
 .steering-table-wrap {overflow:auto;max-height:440px;border:1px solid var(--border);border-radius:6px;}
-.steering-table {border-collapse:collapse;width:100%;min-width:1000px;font-variant-numeric:tabular-nums;}
+.steering-table {border-collapse:collapse;width:100%;min-width:1210px;font-variant-numeric:tabular-nums;}
 .steering-table th,.steering-table td {padding:12px 13px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;font-size:11px;}
 .steering-table th {position:sticky;top:0;z-index:1;background:var(--surface,#fff);color:var(--steering-text);font-weight:500;line-height:1.6;}
 .steering-table th small {color:var(--muted);font-size:9px;font-weight:400;}
@@ -113,3 +138,5 @@
 @media(max-width:1000px){.steering-workspace {grid-template-columns:1fr;}.steering-inputs {grid-template-columns:1fr 1fr;align-items:start;}.steering-method {grid-column:1/-1;}.steering-results {grid-template-columns:1fr;}.steering-canvas-wrap {height:440px;}.steering-readouts {grid-template-columns:repeat(6,minmax(0,1fr));}.steering-readout dd {font-size:19px;}}
 @media(max-width:650px){.steering-inputs {grid-template-columns:1fr;}.steering-method {grid-column:auto;}.steering-readouts {grid-template-columns:repeat(3,minmax(0,1fr));}.steering-canvas-wrap {height:370px;}.steering-draft-actions {gap:6px;}.steering-draft-actions .button {font-size:10px;}.steering-page .section-title {gap:10px;}.steering-preview-panel>.section-title {padding:18px 18px 0;}.steering-preview-panel .switch-label {font-size:9px;}.steering-legend {gap:13px;font-size:9px;}.steering-page .stage-badge {display:none;}.steering-page .page-heading h1 {font-size:28px;}.steering-page .top-actions #steering-save-state {display:none;}.steering-intro>p {font-size:12px;}.steering-page footer {align-items:flex-start;line-height:1.6;}.steering-table-panel>.section-title {align-items:flex-start;}.steering-table-panel .button {white-space:nowrap;font-size:10px;}}
 @media(max-width:650px){.steering-export-actions {align-items:flex-start;flex-direction:column;gap:12px;}}
+@media(max-width:1250px){.steering-construction-grid {grid-template-columns:1fr 1fr;}.steering-construction-card.intersection {grid-column:1/-1;}.steering-construction-card.intersection h4 {margin-bottom:7px;}.steering-intersection-coordinates {gap:24px;}}
+@media(max-width:650px){.steering-construction {margin:0 18px 18px;}.steering-construction-state {font-size:9px;}.steering-overlay-controls {justify-content:center;gap:16px;}.steering-view-controls {justify-content:center;}.steering-construction-angles {gap:11px;}.steering-construction-card {padding:10px;}}

@@ -92,6 +92,8 @@ The tool uses spatial rigid-axis rotation and constant tie-rod length to calcula
 
 The model excludes suspension travel, compliance, backlash, tire slip and forces. Tilted-axis wheel-center movement is geometric only: no road-contact or chassis-jacking solve is imposed. A geometry result is not an optimized setup or measured-vehicle validation. Rear track controls the rear layout; it does not enter the ideal front-angle relation for unsteered rear wheels.
 
+The steering preview also displays included tie-rod/arm angles and extended steering-arm construction lines. Plan angle α and the intersection use the steering axis at outer-ball height (Milliken Fig. 19.3); effective spatial angle β uses the perpendicular steering radius. The readouts distinguish them, report the intersection's axle-local coordinates and rear-axle offset, and provide a fit-to-intersection control. These construction lines are not a solved rolling turn center. Both angles are included in the 5° table and CSV.
+
 ## Architecture
 
 - `src/coordinates.js`: SAE frame definitions, reflection and alignment signs; `src/migration.js`: versioned import and saved-library conversion.
