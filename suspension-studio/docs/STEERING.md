@@ -1,5 +1,9 @@
 # Steering kinematics: governing model and evidence
 
+## Python calculation engine
+
+The steering page now calculates through the same-origin Python service. The exact fixed-axis closure, neutral-connected branch check, signs and numerical limits derived below are preserved in `backend/vehicle_dynamics/models/steering.py`; construction angles and intersections are in `steering_geometry.py`. Python returns every 5° pose and its construction data. The browser renders those results and retains editing/draft storage; the JavaScript solver remains a regression reference, not a runtime fallback. A missing service leaves calculations unavailable with startup/retry guidance. The API, port methodology and verification are recorded in `docs/STEERING_BACKEND.md` and `docs/HYBRID_VERIFICATION.md` at the repository root. Changing language does not itself improve or validate physical accuracy.
+
 ## Scope agreed before implementation
 
 The first tool models rack-and-pinion steering with the suspension held at a defined ride position, as selected by the user. It solves a rigid upright rotating about each entered fixed steering axis. Both rack joints translate in +Y by the same signed distance. Left and right geometry are independent. Upper/lower axis points and tie-rod joints must describe the same measured reference assembly. No suspension dimensions or steering ratio are inferred from wheelbase or track. Unknown inputs remain blank. The optional synthetic example is a software demonstration, not a vehicle recommendation or a measurement.
@@ -15,6 +19,26 @@ Positive steering-wheel angle is a right-turn command by interface convention. S
 Steer heading is positive rightward about +Z. Toe-in is positive inward on either side: toe_left = heading_left and toe_right = -heading_right. Static toe and camber are explicit input angles; zero must be entered if intended. For side s=-1 left or +1 right, static heading h=-s*toe and static camber c (top outward positive), the outward unit spindle is n0=[-s*sin(h)*cos(c), s*cos(h)*cos(c), sin(c)]. After upright rotation the heading is atan2(-s*nX,s*nY), camber is atan2(nZ,hypot(nX,nY)). Differential toe is measured relative to the entered static assembly. Total toe-in = heading_left - heading_right; it must not be confused with either wheel's steering angle.
 
 ## First-principles linkage derivation (before solver implementation)
+
+### Longitudinal rack placement editor
+
+The rack-offset input is a layout editor for the existing inner-joint coordinates, not an additional kinematic degree of freedom. For the entered neutral inner joints I_L and I_R, define x_rack=(I_LX+I_RX)/2. The front-axle datum is X=0, so a positive x_rack is ahead of that axle and a negative value is behind it, in millimeters. This midpoint definition is an explicit interface choice that supports independently entered, longitudinally staggered joints; it does not assert that both X coordinates are equal.
+
+For requested offset s, a rigid translation of both rack-joint reference positions gives
+
+    ΔX = s - x_rack
+    I_L' = I_L + [ΔX,0,0]
+    I_R' = I_R + [ΔX,0,0].
+
+Thus (I_LX'+I_RX')/2=s and I_RX'-I_LX'=I_RX-I_LX; all Y/Z values remain unchanged. These are direct coordinate identities, independent of tire slip or a steering approximation. Unknown X values cannot supply a midpoint: a separately labeled **Set both rack X values** action assigns I_LX=I_RX=s explicitly. It does not infer Y, Z, joint spacing, or any other missing input. Typing is staged until Apply or Enter; clearing the proposed value does not delete joint coordinates. Reset entry discards the proposed edit. The current layout and calculations remain visible while an edit is pending, and Save/JSON/CSV are disabled until it is applied or reset.
+
+The solver continues to use I(q)=I0+[0,q,0], q=g*steeringWheelDeg/360; longitudinal placement and lateral steering stroke are distinct. Applying a rack layout edit leaves outer joints, steering axes and entered static toe/camber unchanged. Because the model defines each neutral tie-rod length as |O0-I0|, that reference length is recalculated after this edit. It is a design reassembly with the tie rods adjusted to the entered static geometry, not a simulation of moving a built rack fore/aft with fixed-length rods. The JSON schema stores only the existing joint coordinates; offset is derived on reload/import and cannot become a conflicting second geometry source. Invalid values and edits whose resulting X coordinates exceed the existing ±1e7 mm numerical bound are rejected atomically; that bound is not a vehicle recommendation.
+
+The relevant physical cross-check is Milliken §19.2, printed p.715 / PDF p.377, Figure 19.4, and Seward §6.3.1, printed pp.162–163 / PDF pp.173–174: fore/aft rack placement changes tie-rod/arm angularity and the practical differential-steer relationship. This supports recomputing actual rigid-link closure after editing the hardpoints; it does not justify a universal percentage correction or a fixed sign of change for every linkage. The coordinate transformation above is derived here, not attributed to a book equation. Further source comparisons and any unresolved differences are recorded in [REFERENCES.md](REFERENCES.md).
+
+Rack-editor checks performed: 11 tests cover signed/zero offsets, asymmetric X preservation, all Y/Z and unrelated inputs, frozen-input nonmutation, explicit unknown-X assignment, malformed values, coordinate-bound rejection without partial edits, existing JSON round trips without a duplicate scalar, and identical solved results to equivalent direct hardpoint edits at five steering inputs. Browser checks confirmed that clearing/retyping a staged offset leaves joint positions intact; translating X=[-120,-80] mm to midpoint -60 mm produces [-80,-40] mm and retains the selected +180° steering-wheel position. These are coordinate/editor and software checks, not physical rack-relocation measurements.
+
+### Fixed-axis closure
 
 Let U and B be the entered upper and lower steering-axis points, O0 the reference outer tie joint, I0 the reference inner joint, and ell=|O0-I0| the assembled tie-rod length. The axis unit vector is k=(B-U)/|B-U|. The orientation of k changes rotation parameter sign but not the physical solutions. Define r=O0-U, v=r-k(k·r), w=k×v, C=U+k(k·r), and rho=|v|. The outer joint follows the exact circle
 
@@ -90,6 +114,8 @@ Independent exact geometry reproduces Seward Table 6.2 (printed p.163 / PDF p.17
 Here delta_i=atan2(L*sin(delta_o),L*cos(delta_o)-t_f*sin(delta_o)), and the outer-front wheel path radius is L/sin(delta_o). The radius is not the rear-axle-midpoint radius. Every entry agrees to the printed precision; the independently calculated cotangent residual is at most 8.9e-16. This is a numerical reference cross-check of ideal geometry, not measured-vehicle evidence.
 
 - **Milliken & Milliken, Race Car Vehicle Dynamics**, Chapter 5 §5.3 printed pp.128–129 / PDF p.83: visually inspected; negligible-acceleration, zero-slip geometry and the limited small-angle approximation L/R. Chapter 19 §19.1 printed pp.710–713 / PDF pp.375–376 and Figure 19.1 define caster, kingpin inclination, scrub and trail, with steering-induced camber and wheel rise/fall. §19.2 printed pp.713–716 / PDF pp.376–378 describes ideal turn-center concurrence, practical linkage approximation, rack placement and static toe versus differential steer. §19.3 printed pp.716–718 / PDF pp.378–379 describes the nonlinear steering map, measured steer-steer tests and rack c-factor. These pages were visually inspected. The publication page (PDF p.6) was visually inspected: copyright 1995, SAE, ISBN 1-56091-526-9, fifth printing. The date of that printing is not given there; the filename's 1997 date is not treated as an edition statement.
+
+- **Thomas D. Gillespie, Fundamentals of Vehicle Dynamics**, Chapter 6 printed pp.196–198 / PDF pp.212–214 and Chapter 8 printed pp.276–280 / PDF pp.292–296: visually inspected in the follow-up review. Equations 8-1/8-2 on printed p.277 distinguish exact arctangent geometry from small-angle approximations; practical linkage approximation, rack translation and suspension-induced toe are separately scoped. Figures 6.1/8.2 use a radius drawing whose datum differs from that required by the exact denominators; the app retains its explicitly derived rear-axle-midpoint transverse radius. The cross-source comparison and unresolved source definitions are recorded in [REFERENCES.md](REFERENCES.md). Edition/year of this supplied scan remain unverified.
 
 **Milliken ratio discrepancy:** printed p.716 defines overall steering ratio as steering-wheel angle divided by road-wheel angle, while the minimal-angularity expression printed on p.718 uses asin(c-factor/steering-arm-length)/360, which has the reciprocal sense. The p.717 plot-slope discussion also uses the inverse gain sense. This calculator does not adopt that approximate formula or ambiguous ratio label: it uses explicit mm per steering-wheel revolution and solves the actual linkage. The mismatch is preserved here rather than hidden behind successful tests.
 

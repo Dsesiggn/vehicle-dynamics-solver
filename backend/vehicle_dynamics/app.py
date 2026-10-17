@@ -11,6 +11,12 @@ from fastapi.staticfiles import StaticFiles
 
 from .models.ackermann import calculate_ackermann
 from .schemas import AckermannRequest, AckermannResponse
+from .models.steering import solve_steering, sweep_steering
+from .models.steering_geometry import steering_construction
+from .steering_schemas import (
+    SteeringSolveRequest, SteeringSolveResponse,
+    SteeringSweepRequest, SteeringSweepResponse,
+)
 
 PROJECT_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
 FRONTEND = PROJECT_ROOT / "suspension-studio"
@@ -18,9 +24,9 @@ FRONTEND = PROJECT_ROOT / "suspension-studio"
 
 def create_app(frontend: Path = FRONTEND) -> FastAPI:
     app = FastAPI(
-        title="Vehicle Dynamics Engineering API", version="0.1.0",
+        title="Vehicle Dynamics Engineering API", version="0.2.0",
         docs_url=None, redoc_url=None, openapi_url="/api/v1/openapi.json",
-        description="Ideal zero-slip Ackermann benchmark. Existing linkage solvers remain in Studio.",
+        description="Fixed-axis rack steering kinematics and nominal ideal zero-slip Ackermann geometry.",
     )
 
     @app.exception_handler(RequestValidationError)
@@ -33,7 +39,7 @@ def create_app(frontend: Path = FRONTEND) -> FastAPI:
 
     @app.get("/api/v1/health")
     def health():
-        return {"status": "ok", "models": ["ideal_ackermann_v1"],
+        return {"status": "ok", "models": ["ideal_ackermann_v1", "fixed_axis_steering_v1"],
                 "numpy": numpy.__version__, "scipy": scipy.__version__}
 
     @app.post("/api/v1/ackermann", response_model=AckermannResponse)
@@ -42,6 +48,21 @@ def create_app(frontend: Path = FRONTEND) -> FastAPI:
                                       request.inside_angles_deg)
         return AckermannResponse(wheelbase_mm=request.wheelbase_mm,
                                  front_track_mm=request.front_track_mm, samples=samples)
+
+    def with_construction(design, result):
+        return {**result, "construction": steering_construction(design, result)}
+
+    @app.post("/api/v1/steering/solve", response_model=SteeringSolveResponse)
+    def steering_pose(request: SteeringSolveRequest):
+        design = request.design.model_dump()
+        result = solve_steering(design, request.steeringWheelDeg)
+        return SteeringSolveResponse(result=with_construction(design, result))
+
+    @app.post("/api/v1/steering/sweep", response_model=SteeringSweepResponse)
+    def steering_sweep(request: SteeringSweepRequest):
+        design = request.design.model_dump()
+        return SteeringSweepResponse(rows=[with_construction(design, result)
+                                            for result in sweep_steering(design)])
 
     @app.get("/", include_in_schema=False)
     def home():

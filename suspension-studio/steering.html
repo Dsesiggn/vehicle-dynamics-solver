@@ -6,7 +6,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
   <script src="./src/theme.js?v=0.2.1"></script>
   <link rel="stylesheet" href="./src/styles.css?v=0.2.9">
-  <link rel="stylesheet" href="./src/steering.css?v=2">
+  <link rel="stylesheet" href="./src/steering.css?v=4">
 </head>
 <body class="steering-page">
   <aside class="sidebar">
@@ -32,7 +32,11 @@
         <details id="export-contents-details"><summary>View or copy file contents</summary><label class="field" for="export-contents">Generated file contents</label><textarea id="export-contents" readonly spellcheck="false" rows="10" aria-label="Generated export file contents"></textarea></details>
       </section>
       <div id="steering-startup" class="steering-notice" role="status">Loading the geometry tool…</div>
-      <noscript><p class="steering-notice error">Enable JavaScript and serve this folder over HTTP to use the calculator.</p></noscript>
+      <noscript><p class="steering-notice error">Enable JavaScript and open the Python application server to use the calculator.</p></noscript>
+      <section id="steering-engine" class="steering-engine" data-state="idle" aria-label="Python calculation engine">
+        <div class="steering-engine-row"><p id="steering-engine-status" role="status">Python calculations start when geometry is complete.</p><button id="retry-steering" class="button subtle" type="button" hidden>Retry calculation</button></div>
+        <details id="steering-engine-help"><summary>Connect the calculation engine</summary><p>For a local session, open <strong>Start Hybrid.command</strong> from the repository folder, then open <a href="http://127.0.0.1:8767/suspension-studio/steering.html">Steering Studio on the Python server (port 8767)</a>. If setup is needed, run <code>python3 setup_hybrid.py</code> once in that folder.</p><p>A static file server such as <code>python3 -m http.server 8766</code> cannot run the steering API. Hosted use requires this page and its Python API on the same origin. Export JSON before moving to another address; browser draft storage is separate for each origin.</p></details>
+      </section>
       <div class="steering-workspace" id="steering-workspace" inert>
         <div class="steering-inputs">
           <section class="panel steering-panel" aria-labelledby="vehicle-heading">
@@ -45,6 +49,12 @@
               <label class="field">Total rack travel<input data-param="rackTravel" aria-label="Total rack travel in mm" type="number" step="any" placeholder="Unknown"><small>Lock to lock; neutral at midpoint · mm</small></label>
               <label class="field">Signed rack gain<input data-param="rackMmPerRevolution" aria-label="Signed rack millimeters per steering wheel revolution" type="number" step="any" placeholder="Unknown"><small>mm per +360° wheel input</small></label>
               <label class="field">Sweep half-range<input data-param="steeringLimitDeg" aria-label="Steering wheel sweep half-range in degrees" type="number" min="5" max="3600" step="5" placeholder="Unknown"><small>± degrees to calculate · multiple of 5</small></label>
+            </div>
+            <div class="steering-rack-offset">
+              <label class="field" for="rack-offset">Steering rack offset from front axle<input id="rack-offset" aria-label="Steering rack longitudinal offset from front axle in mm" aria-describedby="rack-offset-method rack-offset-status" type="number" min="-10000000" max="10000000" step="any" placeholder="Unknown"><small>Rack midpoint X · mm · + ahead / − behind</small></label>
+              <div class="steering-rack-actions"><button id="apply-rack-offset" class="button subtle" type="button" disabled>Apply rack offset</button><button id="reset-rack-offset" class="button subtle" type="button" disabled>Reset entry</button></div>
+              <p id="rack-offset-status" class="hint" role="status">Enter a longitudinal rack position.</p>
+              <p id="rack-offset-method" class="hint">This edits the neutral rack location. Both inner-joint X coordinates move together when known; Y and Z stay as entered. Reference tie-rod lengths are recomputed from the joints, with the entered static alignment retained.</p>
             </div>
             <p class="hint steering-input-note">Positive steering-wheel input is defined as a right-turn command. Enter a signed, constant rack gain per <strong>steering-wheel revolution</strong>, including any intermediate gearing. This is not necessarily the rack’s displacement per pinion revolution. Positive gain moves both inner joints toward +Y; linkage geometry determines wheel direction. A nonuniform column mechanism requires a measured input map and is outside this constant-gain model.</p>
           </section>
@@ -62,6 +72,9 @@
               <p>Each upright rotates about the line through its upper and lower steering-axis points. A constant-length tie rod joins the rotating outer joint to an inner joint translated by the rack. The solution follows the assembly branch connected to the entered static geometry.</p>
               <div class="steering-equation">rack = gain × steering-wheel angle / 360<br>‖outer(θ) − inner(rack)‖ = static tie-rod length</div>
               <p>Positions and lengths use millimeters; displayed angles use degrees. Both rack ends translate by the same signed displacement in +Y. Wheel centers and spindle directions rotate with their upright.</p>
+              <h3>Rack offset from the front axle</h3>
+              <div class="steering-equation">rack offset = (left inner X + right inner X) / 2<br>ΔX = requested offset − current offset<br>new inner X = old inner X + ΔX · on both sides</div>
+              <p>Positive offset is ahead of the front axle; negative is behind, in millimeters. Applying an offset preserves the existing left/right X difference. If an X coordinate is unknown, the explicitly labeled “Set both rack X values” action places both at the entered offset. The hardpoints remain the stored geometry; no duplicate offset is saved. This layout edit recalculates neutral tie-rod lengths and the steering sweep. Rack stroke during steering still acts only in +Y.</p>
               <h3>Nominal Ackermann benchmark</h3>
               <div class="steering-equation">cot(δ<sub>outside</sub>) − cot(δ<sub>inside</sub>) = front track / wheelbase</div>
               <p>This is the planar, zero-slip rolling condition for nominal wheel centers and a fixed, straight rear axle. The ideal outside angle is calculated at the solved inside angle. The error is actual outside minus ideal outside. Rear track sets rear-wheel placement; it does not enter this front-angle relation.</p>
@@ -94,11 +107,11 @@
         </div>
       </div>
       <section class="panel steering-table-panel" aria-labelledby="sweep-heading"><div class="section-title"><div><h2 id="sweep-heading">Full steering sweep</h2><p class="hint" id="sweep-summary">Enter complete geometry to calculate every 5° steering-wheel increment.</p></div><button class="button subtle" id="export-csv" disabled>↓ Export CSV</button></div><div class="steering-table-wrap"><table class="steering-table"><thead><tr><th>SW input<br><small>deg</small></th><th>Rack<br><small>mm</small></th><th>Left heading<br><small>deg</small></th><th>Right heading<br><small>deg</small></th><th>Left rod / arm<br><small>α plan / β 3D · deg</small></th><th>Right rod / arm<br><small>α plan / β 3D · deg</small></th><th>Inside / outside<br><small>deg</small></th><th>Total toe-in<br><small>deg</small></th><th>Δ total toe-in<br><small>deg</small></th><th>Ideal outside<br><small>deg</small></th><th>Outside error<br><small>deg</small></th><th>Ackermann<br><small>%</small></th></tr></thead><tbody id="steering-sweep"><tr><td colspan="12" class="steering-no-data">No calculated sweep. Required geometry is unknown.</td></tr></tbody></table></div><p class="hint">Positive outside error means more outside-wheel steer than the nominal ideal. Ackermann % uses the cotangent definition in the method notes; undefined cases remain blank. Failed positions are reported, never interpolated.</p></section>
-      <footer><span><span class="version-dot"></span> Local calculations · Your geometry stays in this browser</span><a href="./docs/STEERING.md" target="_blank">Method & reference evidence ↗</a></footer>
+      <footer><span><span class="version-dot"></span> Drafts saved in this browser · Geometry calculated by this app’s Python engine</span><a href="./docs/STEERING.md" target="_blank">Method & reference evidence ↗</a></footer>
     </main>
   </div>
   <script>
-    (()=>{const panel=document.getElementById('steering-startup');if(location.protocol==='file:'){panel.textContent='Open this tool through HTTP. From the repository folder run: python3 -m http.server 8766 --bind 127.0.0.1, then visit http://127.0.0.1:8766/suspension-studio/steering.html';panel.classList.add('error');return;}import('./src/steering-app.js?v=2').then(()=>{panel.hidden=true;document.getElementById('steering-workspace').removeAttribute('inert');}).catch(error=>{panel.textContent='The steering tool could not start. Refresh or inspect the module error: '+error.message;panel.classList.add('error');});})();
+    (()=>{const panel=document.getElementById('steering-startup');if(location.protocol==='file:'){panel.textContent='Open Start Hybrid.command in the repository folder, then visit http://127.0.0.1:8767/suspension-studio/steering.html. Steering calculations require the Python application server; a static file server cannot calculate them.';panel.classList.add('error');document.getElementById('steering-engine-help').open=true;return;}import('./src/steering-app.js?v=4').then(()=>{panel.hidden=true;document.getElementById('steering-workspace').removeAttribute('inert');}).catch(error=>{panel.textContent='The steering tool could not start. Refresh or inspect the module error: '+error.message;panel.classList.add('error');});})();
   </script>
 </body>
 </html>

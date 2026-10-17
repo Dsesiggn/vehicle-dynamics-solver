@@ -24,6 +24,10 @@ The new workbench opens with unknown dimensions blank. **Load reference example*
 an explicitly synthetic/reference case. **Calculate reference** sends dimensions and signed
 inside-wheel angles to Python; Plotly charts and a Three.js schematic show returned values.
 The suspension editor and steering linkage tool are available through navigation links.
+The steering page at `/suspension-studio/steering.html` now sends complete geometry to
+Python automatically and returns all 5° samples, toe, arm angles and intersections.
+Incomplete drafts remain editable. Pending/failed requests clear calculated results;
+**Retry calculation** retries the current complete geometry. No local JS solver fallback is used.
 
 The hybrid app defaults to port 8767 because the existing static server uses 8766.
 If port 8767 is in use, stop the prior hybrid launcher or pass `--port 8768`. A different origin has
@@ -101,7 +105,8 @@ docker run --rm -p 127.0.0.1:8000:8000 vehicle-dynamics
 
 The recipe copies only the backend, selected frontend assets, and launcher. It has not
 been built or deployed in this implementation. Static-only hosts can continue to serve
-the old Studio pages, but cannot execute the Python-backed benchmark.
+the suspension editor and steering draft controls, but cannot execute steering or the
+Python-backed benchmark. See [STEERING_BACKEND.md](STEERING_BACKEND.md) for the linkage API.
 
 The existing Studio **Legacy dashboard** link is outside this service and returns 404.
 To use the unchanged original dashboard, start the original static workflow separately

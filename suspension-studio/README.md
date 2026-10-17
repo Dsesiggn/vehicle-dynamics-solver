@@ -1,16 +1,25 @@
 # Suspension Studio
 
-A new, dependency-free suspension design workspace. All original repository files remain unchanged. This app is a foundation for a vehicle dynamics application, not a complete vehicle dynamics simulator.
+A suspension design workspace with a Python steering engine. The original root applications are preserved. This app is a foundation for a vehicle dynamics application, not a complete vehicle dynamics simulator.
 
 ## Run
 
-From the repository root:
+For the steering linkage tool and engineering workbench, run the Python service from the repository root:
+
+```sh
+python3 setup_hybrid.py
+.venv-hybrid/bin/python run_hybrid.py --open
+```
+
+Setup is needed once. Open `http://127.0.0.1:8767/suspension-studio/steering.html` for steering. The service calculates the wheel poses, 5° sweep and construction geometry; no JavaScript calculation fallback runs if it is unavailable. See [the hybrid quickstart](../docs/HYBRID_QUICKSTART.md) and [steering backend contract](../docs/STEERING_BACKEND.md).
+
+The suspension editor still supports a static server:
 
 ```sh
 python3 -m http.server 8766 --bind 127.0.0.1
 ```
 
-Open http://127.0.0.1:8766/suspension-studio/ in a modern browser and keep Terminal running. Or open [the hosted app](https://dsesiggn.github.io/vehicle-dynamics-solver/suspension-studio/), which needs no local server. No package installation or build step is required.
+Open http://127.0.0.1:8766/suspension-studio/ in a modern browser and keep Terminal running. Or open [the hosted suspension editor](https://dsesiggn.github.io/vehicle-dynamics-solver/suspension-studio/), which needs no local server. The static suspension editor needs no package installation or build step; static hosting cannot execute the Python steering engine.
 
 ES modules require HTTP/HTTPS; opening `index.html` directly with a `file://` address is not supported. The startup screen now explains this and links to the hosted app and local setup. It prevents editing an uninitialized workspace. HTTP startup also reports missing required browser features or module-load errors instead of leaving a silent blank viewer. Browser requirements include Canvas 2D, native dialogs, ResizeObserver, structuredClone, and Object.hasOwn. The source of the file-origin restriction is [MDN’s JavaScript modules guide](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules#other_differences_between_modules_and_classic_scripts).
 
@@ -25,7 +34,7 @@ Saved libraries belong to the browser and web origin. The hosted app and a local
 5. Open **Explore kinematics** to solve wheel bump and rack displacement. The preview shows the solved axle, or the static geometry with an explicit failure message when no solution is found.
 6. Enter compression/rebound magnitudes and the shared link OD in **Heave interference check**. The default travel is 25.4 mm in each direction; the shared OD is blank until entered. Run the full sweep, then use the travel slider or a listed event to inspect the solved pose and colliding members.
 7. Optionally enter engine, differential, and cockpit packaging envelopes. Check **Show in preview** to draw a translucent static shape; complete visible shapes also enter the heave clearance check. Use **Fit all** to frame the suspension and visible envelopes.
-8. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Data does not leave the browser.
+8. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Suspension calculations remain in the browser; steering designs are sent to the same-origin Python service for calculation and are not stored there.
 
 ## Appearance
 
@@ -93,6 +102,8 @@ The tool uses spatial rigid-axis rotation and constant tie-rod length to calcula
 The model excludes suspension travel, compliance, backlash, tire slip and forces. Tilted-axis wheel-center movement is geometric only: no road-contact or chassis-jacking solve is imposed. A geometry result is not an optimized setup or measured-vehicle validation. Rear track controls the rear layout; it does not enter the ideal front-angle relation for unsteered rear wheels.
 
 The steering preview also displays included tie-rod/arm angles and extended steering-arm construction lines. Plan angle α and the intersection use the steering axis at outer-ball height (Milliken Fig. 19.3); effective spatial angle β uses the perpendicular steering radius. The readouts distinguish them, report the intersection's axle-local coordinates and rear-axle offset, and provide a fit-to-intersection control. These construction lines are not a solved rolling turn center. Both angles are included in the 5° table and CSV.
+
+The rack-offset editor sets the rack midpoint's longitudinal X relative to the front axle (+ ahead, − behind, in mm). Apply moves both existing inner-joint X coordinates equally, preserving any left/right X difference and all Y/Z inputs. If an X is unknown, the explicitly labeled Set both rack X values action initializes both at that offset. Changes are staged until Apply/Enter; Reset entry discards them. This edits neutral layout and recalculates the reference tie-rod lengths; steering stroke still acts in +Y. Offset is derived from the saved hardpoints, so existing JSON designs remain compatible.
 
 ## Architecture
 

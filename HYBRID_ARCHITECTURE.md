@@ -16,13 +16,13 @@ optional adapters behind the Python model boundary. No purchased API, API key, A
 or third-party calculation service is required. Hosting and optional proprietary MATLAB
 components can have separate costs; no hosting budget or license entitlement is assumed.
 
-## What was found and preserved
+## Initial foundation and subsequent steering port
 
 The active app is `suspension-studio/`, as directed by the existing `AGENTS.md`. It already
 uses separate native JavaScript modules for models, solvers, persistence, and rendering.
-Its current viewers and charts use Canvas 2D. All pre-existing project files are preserved.
+Its steering and suspension viewers use Canvas 2D. The initial foundation preserved existing files; the subsequent steering port changes only the steering frontend and shared service/documentation.
 The root `Dynamics_Dashboard.html`, MATLAB scripts, tire calibration data, archives,
-existing Studio pages, source modules, schemas, tests, and reference notes are unchanged.
+existing suspension pages, source modules, schemas and tests remain unchanged. The steering page now uses Python while retaining saved design schema v1.
 
 The legacy root dashboard still loads Tailwind and Plotly from CDNs. Its cold-start offline
 support is **not** established by this change. Studio itself has local runtime assets.
@@ -43,12 +43,15 @@ Vehicle Dynamics Simulation Tool/
       app.py                  HTTP routes and selected public assets
       schemas.py              strict inputs, explicit units and versioned outputs
       models/ackermann.py     pure NumPy ideal-Ackermann benchmark
+      models/steering.py      fixed-axis rigid linkage and 5° sweep
+      models/steering_geometry.py  arm-angle and intersection construction
+      steering_schemas.py     steering request and response contracts
     tests/                    numerical and API regression checks
   docs/
     HYBRID_QUICKSTART.md       run, test, packaging and deployment instructions
     ACKERMANN_BACKEND.md       derivation, evidence, assumptions and verification
     HYBRID_VERIFICATION.md     actual checks and remaining limitations
-  suspension-studio/          preserved frontend in its current location
+  suspension-studio/          frontend in its existing location
     engineering.html         additive Python-backed engineering workbench
     src/api-client.js         same-origin API transport
     src/engineering.*         new page controller and style
@@ -60,18 +63,21 @@ The root address opens the engineering workbench, with links to the existing sus
 editor and steering tool. Only the three HTML entry points, the Studio README, `src/`, `vendor/`, and four
 explicitly selected existing method documents are public (STEERING, COORDINATES,
 INTERFERENCE, TIRE-TREAD). The project root, Python code, other documents, tests, tire datasets, and MATLAB files are not
-exposed by the new server. Existing static-hosted Studio use remains available.
+exposed by the new server. Static-hosted suspension editing remains available; steering calculations require Python.
 
 ## Calculation boundary
 
-The first backend model is the existing **nominal ideal zero-slip Ackermann benchmark**.
+The initial backend model is the **nominal ideal zero-slip Ackermann benchmark**.
 The new page explicitly requests its outputs; its charts and schematic consume those
 results. No silent JavaScript substitute is used if the backend is unavailable.
 
-The existing fixed-axis rack linkage, suspension pose, and interference calculations
-continue in JavaScript. Port them individually only after source evidence, independent
-numerical checks, fixture parity, failure handling, and browser checks establish the
-replacement's behavior. A Python endpoint is not evidence of better physical accuracy.
+The fixed-axis rack linkage now also runs in Python, including 5° sweeps, toe/Ackermann
+metrics, tie-rod/arm angles and arm-line intersections. The existing steering page consumes
+that service with explicit pending/error states and no silent JavaScript fallback. Its
+JavaScript solver remains a regression reference. See `docs/STEERING_BACKEND.md` for the
+unchanged first-principles model, HTTP contract and port evidence. Suspension pose and
+interference calculations continue in JavaScript; migrate those independently with the
+same source, numerical, failure-handling and browser checks. A Python endpoint is not evidence of better physical accuracy.
 SciPy is installed and its version is reported by the health endpoint; the closed-form
 Ackermann benchmark does not need an iterative SciPy solver.
 
@@ -90,7 +96,7 @@ See `docs/ACKERMANN_BACKEND.md` and the existing `suspension-studio/docs/STEERIN
 1. **Local service, implemented:** shared Python API, preserved editor, new benchmark page,
    local visualization assets, strict contracts, and regression checks. Initial dependency
    installation requires internet; starting and using the installed app does not.
-2. **Solver migration, future:** establish source-backed equations and deterministic fixtures
+2. **Solver migration, in progress:** the steering linkage is ported; establish source-backed equations and deterministic fixtures
    for each suspension/vehicle model, port one at a time, and compare residuals, signs,
    limits and branch/failure behavior before changing existing UI calls.
 3. **Standalone desktop distribution, future:** bundle Python, native dependencies and
