@@ -1,0 +1,11 @@
+{
+  "three": "0.180.0",
+  "plotly": "3.1.0",
+  "sha256": {
+    "plotly/LICENSE": "8c45d9eaf50c2f72dd9c7ab9ef440788ba58a3538484b5c51c1f17d5128752e7",
+    "plotly/plotly.min.js": "122e3be346d66616944d0b83eaaf7242581508c3c1cfa0995a17af0d83eff770",
+    "three/three.module.js": "c8211c69345d2e9949dc7a8ac969380497aa0600a5a8ac6a459c8cd02dd9cb8a",
+    "three/LICENSE": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601",
+    "three/three.core.js": "eb077d2417f61d3e6d9264c317cabc4ea35769ed6b0ab533067292a550784c20"
+  }
+}
