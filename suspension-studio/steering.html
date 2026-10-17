@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#692f50"><title>Steering Studio · Vehicle Dynamics</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
+  <script src="./src/theme.js?v=0.2.1"></script>
+  <link rel="stylesheet" href="./src/styles.css?v=0.2.9">
+  <link rel="stylesheet" href="./src/steering.css?v=3">
+</head>
+<body class="steering-page">
+  <aside class="sidebar">
+    <a class="brand" href="./" aria-label="Vehicle Dynamics home"><span class="brand-mark">V<span>∕</span></span><span>VEHICLE<br><b>DYNAMICS</b></span></a>
+    <div class="workspace-label">DESIGN WORKSPACE</div>
+    <nav aria-label="Workspace">
+      <a href="./" class="nav-link"><span>◇</span> Suspension design <span class="nav-arrow">↗</span></a>
+      <a href="./steering.html" class="nav-link active" aria-current="page"><span>⌁</span> Steering geometry <span class="nav-arrow">↗</span></a>
+      <a class="nav-link" href="../Dynamics_Dashboard.html"><span>▥</span> Legacy dashboard <span class="nav-arrow">↗</span></a>
+    </nav>
+    <div class="sidebar-bottom"><span class="version-dot"></span> Steering / 1.0 <span class="small">Fixed-ride kinematics</span><a href="./docs/STEERING.md" target="_blank">Method & references ↗</a></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><div>Workspace <span>/</span> <strong>Steering geometry</strong></div><div class="top-actions"><span id="steering-save-state">Unsaved draft</span><button id="theme-toggle" class="button theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Dark mode"><span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-thumb"></span></span><span>Dark mode</span></button><button class="button subtle" id="export-json">↓ JSON</button><button class="button primary" id="save-steering">Save draft <span>↗</span></button></div></header>
+    <main>
+      <a class="button mobile-tool-link" href="./">← Suspension design</a>
+      <div class="page-heading"><div><div class="eyebrow">STEERING KINEMATICS</div><h1>Geometry into motion<span>.</span></h1><p>Explore wheel angles, toe change, and the Ackermann relationship.</p></div><span class="stage-badge"><span></span> FIXED RIDE HEIGHT</span></div>
+      <div class="steering-intro"><p>Define your rack and steering axes. Compare the solved linkage with a nominal, zero-slip Ackermann reference in <strong>5° steering-wheel steps</strong>.</p><div class="steering-draft-actions"><button class="button subtle" id="new-steering">New blank design</button><button class="button subtle" id="load-example">Load synthetic example</button><label class="button subtle import-label">↑ Import JSON<input id="import-steering" type="file" accept="application/json,.json" hidden></label></div></div>
+      <div id="steering-notice" class="steering-notice" role="status" hidden></div>
+      <section id="export-ready" class="panel steering-export-panel" aria-labelledby="export-ready-heading" hidden>
+        <div class="section-title"><div><h2 id="export-ready-heading">Export ready</h2><p id="export-ready-status" class="hint" role="status"></p></div><button id="close-export" class="button subtle" type="button" aria-label="Close export panel">Close</button></div>
+        <div class="steering-export-actions"><a id="export-download" class="button primary" download>↓ Download file</a><p class="hint">If your browser does not save the file, open the contents below and copy them into a local file.</p></div>
+        <details id="export-contents-details"><summary>View or copy file contents</summary><label class="field" for="export-contents">Generated file contents</label><textarea id="export-contents" readonly spellcheck="false" rows="10" aria-label="Generated export file contents"></textarea></details>
+      </section>
+      <div id="steering-startup" class="steering-notice" role="status">Loading the geometry tool…</div>
+      <noscript><p class="steering-notice error">Enable JavaScript and serve this folder over HTTP to use the calculator.</p></noscript>
+      <div class="steering-workspace" id="steering-workspace" inert>
+        <div class="steering-inputs">
+          <section class="panel steering-panel" aria-labelledby="vehicle-heading">
+            <div class="section-title"><h2 id="vehicle-heading"><span>01</span> Vehicle & input</h2><span class="unit-badge">mm / deg</span></div>
+            <label class="field">Design name<input id="steering-name" maxlength="80" autocomplete="off"></label>
+            <div class="steering-fields">
+              <label class="field">Wheelbase<input data-param="wheelbase" aria-label="Wheelbase in mm" type="number" step="any" placeholder="Unknown"><small>Front to rear axle · mm</small></label>
+              <label class="field">Front track<input data-param="frontTrack" aria-label="Front track in mm" type="number" step="any" placeholder="Unknown"><small>Nominal wheel centers · mm</small></label>
+              <label class="field">Rear track<input data-param="rearTrack" aria-label="Rear track in mm" type="number" step="any" placeholder="Unknown"><small>Nominal wheel centers · mm</small></label>
+              <label class="field">Total rack travel<input data-param="rackTravel" aria-label="Total rack travel in mm" type="number" step="any" placeholder="Unknown"><small>Lock to lock; neutral at midpoint · mm</small></label>
+              <label class="field">Signed rack gain<input data-param="rackMmPerRevolution" aria-label="Signed rack millimeters per steering wheel revolution" type="number" step="any" placeholder="Unknown"><small>mm per +360° wheel input</small></label>
+              <label class="field">Sweep half-range<input data-param="steeringLimitDeg" aria-label="Steering wheel sweep half-range in degrees" type="number" min="5" max="3600" step="5" placeholder="Unknown"><small>± degrees to calculate · multiple of 5</small></label>
+            </div>
+            <div class="steering-rack-offset">
+              <label class="field" for="rack-offset">Steering rack offset from front axle<input id="rack-offset" aria-label="Steering rack longitudinal offset from front axle in mm" aria-describedby="rack-offset-method rack-offset-status" type="number" min="-10000000" max="10000000" step="any" placeholder="Unknown"><small>Rack midpoint X · mm · + ahead / − behind</small></label>
+              <div class="steering-rack-actions"><button id="apply-rack-offset" class="button subtle" type="button" disabled>Apply rack offset</button><button id="reset-rack-offset" class="button subtle" type="button" disabled>Reset entry</button></div>
+              <p id="rack-offset-status" class="hint" role="status">Enter a longitudinal rack position.</p>
+              <p id="rack-offset-method" class="hint">This edits the neutral rack location. Both inner-joint X coordinates move together when known; Y and Z stay as entered. Reference tie-rod lengths are recomputed from the joints, with the entered static alignment retained.</p>
+            </div>
+            <p class="hint steering-input-note">Positive steering-wheel input is defined as a right-turn command. Enter a signed, constant rack gain per <strong>steering-wheel revolution</strong>, including any intermediate gearing. This is not necessarily the rack’s displacement per pinion revolution. Positive gain moves both inner joints toward +Y; linkage geometry determines wheel direction. A nonuniform column mechanism requires a measured input map and is outside this constant-gain model.</p>
+          </section>
+          <section class="panel steering-panel" aria-labelledby="geometry-heading">
+            <div class="section-title"><h2 id="geometry-heading"><span>02</span> Steering geometry</h2><span class="unit-badge">3D</span></div>
+            <p class="hint">Front-axle datum at the ground center: +X forward, +Y right, +Z down. Enter actual joint centers in mm; a point above ground has negative Z.</p>
+            <div id="steering-hardpoints"></div>
+            <button class="button subtle mirror-button" id="mirror-steering">Mirror left geometry to right →</button>
+            <p class="hint">Mirroring is an explicit edit. Left and right remain independently editable. Static toe is positive inward on either side; camber is positive top-outward.</p>
+          </section>
+          <details class="panel steering-method" id="steering-method">
+            <summary>Principles, definitions & limits <span>＋</span></summary>
+            <div class="steering-method-content">
+              <h3>Rigid steering linkage</h3>
+              <p>Each upright rotates about the line through its upper and lower steering-axis points. A constant-length tie rod joins the rotating outer joint to an inner joint translated by the rack. The solution follows the assembly branch connected to the entered static geometry.</p>
+              <div class="steering-equation">rack = gain × steering-wheel angle / 360<br>‖outer(θ) − inner(rack)‖ = static tie-rod length</div>
+              <p>Positions and lengths use millimeters; displayed angles use degrees. Both rack ends translate by the same signed displacement in +Y. Wheel centers and spindle directions rotate with their upright.</p>
+              <h3>Rack offset from the front axle</h3>
+              <div class="steering-equation">rack offset = (left inner X + right inner X) / 2<br>ΔX = requested offset − current offset<br>new inner X = old inner X + ΔX · on both sides</div>
+              <p>Positive offset is ahead of the front axle; negative is behind, in millimeters. Applying an offset preserves the existing left/right X difference. If an X coordinate is unknown, the explicitly labeled “Set both rack X values” action places both at the entered offset. The hardpoints remain the stored geometry; no duplicate offset is saved. This layout edit recalculates neutral tie-rod lengths and the steering sweep. Rack stroke during steering still acts only in +Y.</p>
+              <h3>Nominal Ackermann benchmark</h3>
+              <div class="steering-equation">cot(δ<sub>outside</sub>) − cot(δ<sub>inside</sub>) = front track / wheelbase</div>
+              <p>This is the planar, zero-slip rolling condition for nominal wheel centers and a fixed, straight rear axle. The ideal outside angle is calculated at the solved inside angle. The error is actual outside minus ideal outside. Rear track sets rear-wheel placement; it does not enter this front-angle relation.</p>
+              <div class="steering-equation">Ackermann % = 100 × (wheelbase / front track) × [cot(δ<sub>outside</sub>) − cot(δ<sub>inside</sub>)]</div>
+              <p>This cotangent definition is 100% for the nominal ideal and 0% for parallel headings; it differs from steering-arm intersection percentages in the references. It uses absolute solved headings, including static toe. The percentage is omitted if either angle is below 0.01°, or for straight, opposing, or ≥89° headings. No percentage is inferred at center.</p>
+              <p>The dashed reference is a heading comparison, not a solved vehicle turn center. Tilted steering axes, wheel-center offsets and camber can move the actual contact geometry. A road-contact and jacking solution is outside this model.</p>
+              <h3>Tie-rod / steering-arm angles</h3>
+              <p>Plan angle α is measured at the outer ball joint between the tie rod and the arm line to the steering axis at that ball’s height (Milliken Fig. 19.3, p.714). The dashed arm extensions meet at the displayed plan intersection. This construction is approximate as an Ackermann design guide; it is not the rolling turn center.</p>
+              <p>Effective 3D angle β uses the perpendicular radius from the steering axis to the outer joint and the spatial tie rod. With inclined axes it uses a different arm reference from α. Both are unsigned included angles, 0–180°. No physical arm shape or ball-joint articulation limit is inferred.</p>
+              <div class="steering-equation">angle = atan2(‖arm ray × rod ray‖, arm ray · rod ray)<br>Both rays start at the outer tie-rod joint.</div>
+              <h3>Outputs and scope</h3>
+              <p>Heading is positive rightward. Left toe-in equals left heading; right toe-in is negative right heading. Total toe is their sum; Δ toe is the change from the entered static alignment. Inside/outside and ideal comparisons are unavailable when wheel headings oppose or when their turn is not defined.</p>
+              <p>Fixed chassis and steering axes; rigid joints and links; constant rack gain. The neutral rack is the midpoint of entered lock-to-lock travel, so permitted displacement is ± half that travel. No suspension bump, compliance, backlash, tire slip, tire forces or dynamic load transfer. The synthetic example is a software demonstration, not measured or recommended vehicle geometry.</p>
+              <p>Source verification, numerical checks and physical validation are distinct. The tool does not establish experimental validity for your vehicle.</p>
+              <a class="steering-doc-link" href="./docs/STEERING.md" target="_blank">Read derivation, source pages & validation evidence ↗</a>
+            </div>
+          </details>
+        </div>
+        <div class="steering-results">
+          <section class="panel steering-preview-panel" aria-labelledby="preview-heading">
+            <div class="section-title"><div><h2 id="preview-heading">Live steering geometry</h2><p class="hint">Top view · +X forward ↑ · +Y right →</p></div><label class="switch-label"><input type="checkbox" id="ideal-overlay" checked> Ideal overlay</label></div>
+            <div class="steering-canvas-wrap"><canvas id="steering-scene" aria-label="Top-view steering linkage with plan tie-rod/arm angles, steering-arm extension intersection, solved headings and ideal comparison"></canvas><div id="steering-preview-empty" class="steering-empty"><strong>Start with your geometry.</strong><span>Unknown values stay blank. Enter the dimensions and joint centers, or inspect the labeled synthetic example.</span></div></div>
+            <div class="steering-overlay-controls"><label class="switch-label"><input type="checkbox" id="arm-lines-overlay" checked> Arm extensions</label><label class="switch-label"><input type="checkbox" id="arm-angles-overlay" checked> Plan angles α</label></div><div class="steering-view-controls"><button id="fit-arm-intersection" type="button" class="button subtle" aria-pressed="false" disabled>Fit intersection</button><button id="steering-view" type="button" class="button subtle" aria-pressed="false">Focus front linkage</button></div><div class="steering-legend"><span><i class="legend-actual"></i> Solved linkage</span><span><i class="legend-static"></i> Static reference</span><span><i class="legend-arms"></i> Arm extensions</span><span><i class="legend-ideal"></i> Nominal ideal heading</span></div>
+            <p class="hint steering-graphic-note">Arm lines join the steering axis at outer-ball height to the outer joint. Arcs show the plan included angle α at that joint; their radii and wheel glyphs are symbolic. Joint positions are to scale. Rear wheels are a fixed, zero-toe reference.</p>
+            <div class="steering-construction" id="steering-construction" aria-live="polite"></div>
+            <div class="steering-motion"><div class="steering-motion-header"><label for="steering-angle">Steering-wheel input</label><output id="steering-angle-value">0°</output></div><input id="steering-angle" type="range" min="-5" max="5" step="5" value="0" disabled><div class="steering-range-labels"><span id="steering-min-label">− limit</span><button id="center-steering" type="button">Center · 0°</button><span id="steering-max-label">+ limit</span></div></div>
+          </section>
+          <section class="panel steering-readout-panel" aria-labelledby="readout-heading"><div class="section-title"><h2 id="readout-heading">At this input</h2><span id="turn-badge" class="unit-badge">Awaiting geometry</span></div><div id="steering-readouts" class="steering-readouts"></div><div id="steering-status" class="steering-status" role="status" aria-live="polite"></div></section>
+          <section class="panel steering-chart-panel" aria-labelledby="chart-heading"><div class="section-title"><div><h2 id="chart-heading">Steering progression</h2><p class="hint" id="chart-description">Signed heading versus steering-wheel input · degrees</p></div><span class="unit-badge">5° samples</span></div><label class="field steering-chart-choice">Plot<select id="steering-chart-mode" aria-label="Steering chart quantity"><option value="headings">Left / right wheel heading</option><option value="toe">Change in total toe-in</option><option value="error">Outside angle error from ideal</option></select></label><canvas id="steering-chart" aria-label="Chart of left and right signed wheel heading versus steering wheel input"></canvas><div class="steering-legend" id="chart-legend"><span><i class="legend-left"></i> Left wheel</span><span><i class="legend-right"></i> Right wheel</span><span><i class="legend-cursor"></i> Selected input</span></div></section>
+        </div>
+      </div>
+      <section class="panel steering-table-panel" aria-labelledby="sweep-heading"><div class="section-title"><div><h2 id="sweep-heading">Full steering sweep</h2><p class="hint" id="sweep-summary">Enter complete geometry to calculate every 5° steering-wheel increment.</p></div><button class="button subtle" id="export-csv" disabled>↓ Export CSV</button></div><div class="steering-table-wrap"><table class="steering-table"><thead><tr><th>SW input<br><small>deg</small></th><th>Rack<br><small>mm</small></th><th>Left heading<br><small>deg</small></th><th>Right heading<br><small>deg</small></th><th>Left rod / arm<br><small>α plan / β 3D · deg</small></th><th>Right rod / arm<br><small>α plan / β 3D · deg</small></th><th>Inside / outside<br><small>deg</small></th><th>Total toe-in<br><small>deg</small></th><th>Δ total toe-in<br><small>deg</small></th><th>Ideal outside<br><small>deg</small></th><th>Outside error<br><small>deg</small></th><th>Ackermann<br><small>%</small></th></tr></thead><tbody id="steering-sweep"><tr><td colspan="12" class="steering-no-data">No calculated sweep. Required geometry is unknown.</td></tr></tbody></table></div><p class="hint">Positive outside error means more outside-wheel steer than the nominal ideal. Ackermann % uses the cotangent definition in the method notes; undefined cases remain blank. Failed positions are reported, never interpolated.</p></section>
+      <footer><span><span class="version-dot"></span> Local calculations · Your geometry stays in this browser</span><a href="./docs/STEERING.md" target="_blank">Method & reference evidence ↗</a></footer>
+    </main>
+  </div>
+  <script>
+    (()=>{const panel=document.getElementById('steering-startup');if(location.protocol==='file:'){panel.textContent='Open this tool through HTTP. From the repository folder run: python3 -m http.server 8766 --bind 127.0.0.1, then visit http://127.0.0.1:8766/suspension-studio/steering.html';panel.classList.add('error');return;}import('./src/steering-app.js?v=3').then(()=>{panel.hidden=true;document.getElementById('steering-workspace').removeAttribute('inert');}).catch(error=>{panel.textContent='The steering tool could not start. Refresh or inspect the module error: '+error.message;panel.classList.add('error');});})();
+  </script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+.steering-page {--steering-left:#7b3e5b;--steering-right:#2d807d;--steering-ideal:#b18336;--steering-grid:#e5e5eb;--steering-bg:#fbfafc;--steering-text:#36313b;--steering-static:#c2b9c5;}
+.steering-page .page-heading {margin-bottom:22px;}
+.steering-page main {max-width:1900px;margin:auto;}
+.steering-intro {display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:24px;}
+.steering-intro>p {max-width:630px;line-height:1.7;color:var(--muted);font-size:13px;margin:0;}
+.steering-intro strong {color:var(--steering-text);font-weight:500;}
+.steering-draft-actions {display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;}
+.steering-draft-actions .button {font-size:11px;padding:10px 12px;}
+.steering-notice {padding:13px 17px;margin-bottom:20px;border:1px solid var(--border);border-left:3px solid var(--accent);background:var(--surface,#fff);border-radius:6px;line-height:1.6;}
+.steering-notice.error {border-left-color:#b54b4d;}
+.steering-export-panel {padding:20px 23px;margin-bottom:22px!important;}
+.steering-export-panel .section-title {margin-bottom:12px;}
+.steering-export-actions {display:flex;align-items:center;gap:18px;}
+.steering-export-actions .button {white-space:nowrap;}
+.steering-export-actions .hint {margin:0;}
+.steering-export-panel details {margin-top:17px;border-top:1px solid var(--border);padding-top:13px;}
+.steering-export-panel summary {cursor:pointer;font-size:11px;color:var(--accent);}
+.steering-export-panel .field {margin-top:15px!important;color:var(--muted);}
+#export-contents {display:block;resize:vertical;width:100%;margin-top:8px;min-height:150px;padding:12px;border:1px solid var(--border);border-radius:5px;background:var(--steering-bg);color:var(--steering-text);font:11px/1.7 ui-monospace,monospace;white-space:pre;}
+.steering-workspace {display:grid;grid-template-columns:minmax(310px,380px) minmax(0,1fr);gap:24px;align-items:start;}
+.steering-inputs,.steering-results {display:grid;gap:20px;min-width:0;}
+.steering-page .panel {margin:0;}
+.steering-panel,.steering-readout-panel,.steering-chart-panel,.steering-table-panel {padding:23px;}
+.steering-page .section-title {margin-bottom:17px;}
+.steering-page .section-title h2 {font-size:14px;line-height:1.45;}
+.steering-page .section-title .hint {margin:6px 0 0;}
+.steering-page .hint {line-height:1.65;font-size:11px;}
+.steering-fields {display:grid;grid-template-columns:1fr 1fr;gap:15px 12px;margin-top:18px;}
+.steering-page .field {margin:0;gap:7px;font-size:11px;}
+.steering-page .field input {min-width:0;width:100%;font-variant-numeric:tabular-nums;font-size:13px;}
+.steering-page .field small {font-size:10px;line-height:1.45;color:var(--muted);font-weight:400;}
+.steering-input-note {padding-top:13px;border-top:1px solid var(--border);margin:18px 0 0;}
+.steering-rack-offset {padding:17px 0 0;margin-top:18px;border-top:1px solid var(--border);}
+.steering-rack-offset>.field {max-width:100%;}
+.steering-rack-actions {display:flex;gap:8px;flex-wrap:wrap;margin-top:11px;}
+.steering-rack-actions .button {font-size:10px;line-height:1.5;padding:8px 10px;justify-content:center;}
+.steering-rack-offset .hint {margin:10px 0 0;font-size:10px;line-height:1.7;}
+.steering-rack-offset.pending #rack-offset-status {border-left:2px solid var(--steering-ideal);padding-left:10px;}
+#rack-offset-status.error {color:#b64c4f;}
+#rack-offset-method {color:var(--muted);}
+:root[data-theme="dark"] #rack-offset-status.error {color:#ff9c9d;}
+.steering-point-side {border-top:1px solid var(--border);margin-top:15px;}
+.steering-point-side summary {list-style:none;cursor:pointer;padding:15px 0;display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:12px;}
+.steering-point-side summary::-webkit-details-marker {display:none;}
+.steering-point-side summary::after {content:'＋';font-weight:400;color:var(--muted);}
+.steering-point-side[open] summary::after {content:'−';}
+.steering-side-label {display:flex;align-items:center;gap:9px;}
+.steering-side-dot {height:8px;width:8px;border-radius:50%;background:var(--steering-left);}
+.steering-point-side[data-side="right"] .steering-side-dot {background:var(--steering-right);}
+.steering-point-fields {display:grid;gap:14px;padding-bottom:17px;}
+.steering-point {border:0;padding:0;margin:0;min-width:0;}
+.steering-point legend {font-size:10px;font-weight:500;color:var(--muted);margin-bottom:7px;}
+.steering-xyz {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+.steering-xyz .field {font-size:9px;gap:4px;}
+.steering-xyz input {padding:9px 7px!important;font-size:12px!important;}
+.steering-wheel-fields {display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.steering-wheel-fields .field:first-child {grid-column:1/-1;}
+.mirror-button {width:100%;justify-content:center;font-size:11px;margin-top:4px;}
+.steering-method {padding:0 22px;}
+.steering-method>summary {list-style:none;cursor:pointer;font-size:12px;font-weight:600;padding:20px 0;display:flex;justify-content:space-between;gap:12px;}
+.steering-method>summary::-webkit-details-marker {display:none;}
+.steering-method summary span {color:var(--muted);font-weight:400;}
+.steering-method-content {padding-bottom:23px;color:var(--muted);font-size:12px;line-height:1.75;}
+.steering-method-content h3 {font-size:12px;color:var(--steering-text);margin:15px 0 5px;}
+.steering-method-content p {margin:8px 0 13px;}
+.steering-equation {background:var(--steering-bg);padding:12px;border:1px solid var(--border);border-radius:5px;color:var(--steering-text);font:11px/1.85 ui-monospace,monospace;overflow-wrap:anywhere;}
+.steering-doc-link {color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
+.steering-preview-panel {overflow:hidden;}
+.steering-preview-panel>.section-title {padding:23px 23px 0;}
+.steering-preview-panel .switch-label {font-size:10px;white-space:nowrap;}
+.steering-canvas-wrap {position:relative;height:440px;background:var(--steering-bg);border-block:1px solid var(--border);}
+#steering-scene {width:100%;height:100%;display:block;}
+.steering-empty {position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px;text-align:center;background:var(--steering-bg);}
+.steering-empty strong {font-size:19px;font-weight:500;color:var(--steering-text);}
+.steering-empty span {font-size:12px;line-height:1.8;color:var(--muted);max-width:340px;}
+.steering-legend {display:flex;justify-content:center;gap:21px;flex-wrap:wrap;padding:15px 18px 8px;font-size:10px;color:var(--muted);}
+.steering-view-controls {padding:10px 18px 0;display:flex;justify-content:flex-end;}
+.steering-view-controls {gap:8px;flex-wrap:wrap;}
+.steering-overlay-controls {display:flex;align-items:center;justify-content:flex-end;gap:19px;padding:13px 20px 0;flex-wrap:wrap;}
+.steering-overlay-controls .switch-label {font-size:10px;}
+.steering-construction {margin:0 23px 20px;padding-top:17px;border-top:1px solid var(--border);}
+.steering-construction-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:13px;}
+.steering-construction-heading h3 {font-size:12px;font-weight:500;margin:0;}
+.steering-construction-state {font-size:9px;color:var(--muted);}
+.steering-construction-state.unavailable {color:var(--steering-ideal);}
+.steering-construction-grid {display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:10px;}
+.steering-construction-card {border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--steering-bg);min-width:0;}
+.steering-construction-card h4 {font-size:9px;font-weight:500;line-height:1.5;margin:0 0 10px;color:var(--muted);}
+.steering-construction-card.left {border-top:2px solid var(--steering-left);}
+.steering-construction-card.right {border-top:2px solid var(--steering-right);}
+.steering-construction-card.intersection {border-top:2px solid var(--steering-ideal);}
+.steering-construction-angles,.steering-intersection-coordinates {display:flex;gap:13px;flex-wrap:wrap;margin:0;}
+.steering-construction-angles dt,.steering-intersection-coordinates dt {font-size:9px;color:var(--muted);line-height:1.5;margin:0 0 3px;}
+.steering-construction-angles dd {font-size:17px;font-variant-numeric:tabular-nums;letter-spacing:-.4px;color:var(--steering-text);margin:0;}
+.steering-construction-angles dd small,.steering-intersection-coordinates dd small {font-size:10px;color:var(--muted);letter-spacing:0;margin-left:2px;}
+.steering-intersection-coordinates dd {font-size:12px;font-variant-numeric:tabular-nums;color:var(--steering-text);margin:0;}
+.steering-intersection-offset {font-size:10px;font-variant-numeric:tabular-nums;color:var(--muted);margin:7px 0 0;line-height:1.5;}
+.steering-construction-unavailable {font-size:10px;color:var(--muted);margin:0;line-height:1.7;}
+.steering-construction-definitions {margin-top:12px;font-size:10px;line-height:1.7;color:var(--muted);}
+.steering-construction-definitions summary {cursor:pointer;color:var(--accent);}
+.steering-construction-definitions p {margin:8px 0 0;}
+.steering-legend .legend-arms {border-color:var(--steering-ideal);border-top-style:dotted;}
+.steering-view-controls .button {padding:6px 9px;font-size:10px;}
+.steering-legend>span {display:flex;align-items:center;gap:7px;}
+.steering-legend i {display:inline-block;width:17px;border-top:2px solid var(--steering-left);}
+.steering-legend .legend-static {border-color:var(--steering-static);}
+.steering-legend .legend-ideal {border-color:var(--steering-ideal);border-top-style:dashed;}
+.steering-legend .legend-right {border-color:var(--steering-right);}
+.steering-legend .legend-cursor {border-color:var(--muted);border-top-style:dashed;}
+.steering-graphic-note {margin:7px 23px 18px;font-size:10px!important;text-align:center;}
+.steering-motion {padding:19px 24px;background:var(--steering-bg);border-top:1px solid var(--border);}
+.steering-motion-header {display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:12px;}
+.steering-motion-header output {font-size:23px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--accent);}
+#steering-angle {width:100%;accent-color:var(--accent);}
+.steering-range-labels {display:flex;justify-content:space-between;align-items:center;margin-top:6px;color:var(--muted);font-size:10px;}
+.steering-range-labels button {background:none;border:0;color:var(--accent);font-size:10px;padding:5px 10px;}
+.steering-readouts {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px 15px;}
+.steering-readout {min-width:0;}
+.steering-readout dt {font-size:10px;color:var(--muted);margin-bottom:7px;}
+.steering-readout dd {margin:0;font-size:22px;line-height:1.2;letter-spacing:-.7px;font-variant-numeric:tabular-nums;color:var(--steering-text);}
+.steering-readout dd small {font-size:11px;color:var(--muted);letter-spacing:0;}
+.steering-status {border-top:1px solid var(--border);margin-top:20px;padding-top:13px;font-size:11px;line-height:1.7;color:var(--muted);overflow-wrap:anywhere;}
+.steering-status.error {color:#b64c4f;}
+.steering-status ul {padding-left:17px;margin:5px 0 0;}
+.steering-status details summary {cursor:pointer;margin-top:5px;}
+#steering-chart {height:210px;width:100%;display:block;}
+.steering-chart-choice {display:flex!important;flex-direction:row!important;align-items:center;gap:12px!important;justify-content:flex-end;margin:0 0 10px!important;color:var(--muted);}
+.steering-chart-choice select {max-width:270px;font-size:11px;padding:8px 10px;}
+.steering-table-panel {margin-top:24px!important;}
+.steering-table-wrap {overflow:auto;max-height:440px;border:1px solid var(--border);border-radius:6px;}
+.steering-table {border-collapse:collapse;width:100%;min-width:1210px;font-variant-numeric:tabular-nums;}
+.steering-table th,.steering-table td {padding:12px 13px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;font-size:11px;}
+.steering-table th {position:sticky;top:0;z-index:1;background:var(--surface,#fff);color:var(--steering-text);font-weight:500;line-height:1.6;}
+.steering-table th small {color:var(--muted);font-size:9px;font-weight:400;}
+.steering-table tbody tr {cursor:pointer;}
+.steering-table tbody tr:hover,.steering-table tbody tr.selected {background:var(--steering-bg);}
+.steering-table tbody tr.selected td:first-child {box-shadow:inset 3px 0 var(--accent);font-weight:600;}
+.steering-table tbody tr.failed {color:#b64c4f;}
+.steering-table .steering-no-data {text-align:left;white-space:normal;line-height:1.8;color:var(--muted);padding:24px;}
+.steering-table-panel>.hint {margin:14px 0 0;font-size:10px;}
+.steering-page footer {margin-top:24px;}
+.steering-page input[aria-invalid="true"] {border-color:#b64c4f!important;}
+:root[data-theme="dark"] .steering-page {--steering-left:#e5a3c1;--steering-right:#80c9c1;--steering-ideal:#dfbb73;--steering-grid:#303b4e;--steering-bg:#1b2230;--steering-text:#e0e5ee;--steering-static:#647083;}
+:root[data-theme="dark"] .steering-status.error,:root[data-theme="dark"] .steering-table tbody tr.failed {color:#ff9c9d;}
+@media(min-width:1600px){.steering-canvas-wrap {height:490px;}.steering-workspace {grid-template-columns:400px minmax(0,1fr);}.steering-readouts {grid-template-columns:repeat(6,minmax(0,1fr));}.steering-readout dd {font-size:20px;}}
+@media(max-width:1250px){.steering-intro {flex-direction:column;align-items:flex-start;gap:14px;}.steering-workspace {grid-template-columns:minmax(290px,340px) minmax(0,1fr);gap:18px;}.steering-panel,.steering-readout-panel,.steering-chart-panel,.steering-table-panel {padding:19px;}.steering-readout dd {font-size:19px;}.steering-canvas-wrap {height:410px;}}
+@media(max-width:1000px){.steering-workspace {grid-template-columns:1fr;}.steering-inputs {grid-template-columns:1fr 1fr;align-items:start;}.steering-method {grid-column:1/-1;}.steering-results {grid-template-columns:1fr;}.steering-canvas-wrap {height:440px;}.steering-readouts {grid-template-columns:repeat(6,minmax(0,1fr));}.steering-readout dd {font-size:19px;}}
+@media(max-width:650px){.steering-inputs {grid-template-columns:1fr;}.steering-method {grid-column:auto;}.steering-readouts {grid-template-columns:repeat(3,minmax(0,1fr));}.steering-canvas-wrap {height:370px;}.steering-draft-actions {gap:6px;}.steering-draft-actions .button {font-size:10px;}.steering-page .section-title {gap:10px;}.steering-preview-panel>.section-title {padding:18px 18px 0;}.steering-preview-panel .switch-label {font-size:9px;}.steering-legend {gap:13px;font-size:9px;}.steering-page .stage-badge {display:none;}.steering-page .page-heading h1 {font-size:28px;}.steering-page .top-actions #steering-save-state {display:none;}.steering-intro>p {font-size:12px;}.steering-page footer {align-items:flex-start;line-height:1.6;}.steering-table-panel>.section-title {align-items:flex-start;}.steering-table-panel .button {white-space:nowrap;font-size:10px;}}
+@media(max-width:650px){.steering-export-actions {align-items:flex-start;flex-direction:column;gap:12px;}}
+@media(max-width:1250px){.steering-construction-grid {grid-template-columns:1fr 1fr;}.steering-construction-card.intersection {grid-column:1/-1;}.steering-construction-card.intersection h4 {margin-bottom:7px;}.steering-intersection-coordinates {gap:24px;}}
+@media(max-width:650px){.steering-construction {margin:0 18px 18px;}.steering-construction-state {font-size:9px;}.steering-overlay-controls {justify-content:center;gap:16px;}.steering-view-controls {justify-content:center;}.steering-construction-angles {gap:11px;}.steering-construction-card {padding:10px;}}
+@media(max-width:650px){.steering-rack-actions .button {flex:1;}.steering-rack-actions .button:first-child {flex:2;}}
