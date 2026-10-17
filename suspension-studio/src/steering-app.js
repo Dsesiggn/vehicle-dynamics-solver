@@ -1,6 +1,7 @@
 import {newSteeringDesign,exampleSteeringDesign,validateSteeringDesign,solveSteering,sweepSteering} from './steering.js';
 import {SteeringViewer,SteeringChart} from './steering-viewer.js';
 import {steeringConstruction} from './steering-geometry.js';
+import {rackLongitudinalOffset,setRackLongitudinalOffset} from './steering-rack.js';
 
 const $=id=>document.getElementById(id),STORAGE='suspension-studio.steering.v1';
 const sides=['left','right'],pointNames={axisUpper:'Upper steering-axis point',axisLower:'Lower steering-axis point',tieInner:'Rack / tie-rod inner joint',tieOuter:'Upright / tie-rod outer joint'};
@@ -8,7 +9,7 @@ const scalarNames={wheelCenterZ:'Nominal wheel center Z',staticToeDeg:'Static to
 const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const format=(value,digits=2)=>Number.isFinite(value)?value.toFixed(digits):'—';
 const signed=(value,digits=2)=>Number.isFinite(value)?`${value>0?'+':''}${value.toFixed(digits)}`:'—';
-let design=newSteeringDesign(),angle=0,rows=[],dirty=false,ready=false,storageReadable=true,exportUrl=null,currentConstruction=null;
+let design=newSteeringDesign(),angle=0,rows=[],dirty=false,ready=false,storageReadable=true,exportUrl=null,currentConstruction=null,rackOffsetPending=false;
 const viewer=new SteeringViewer($('steering-scene')),chart=new SteeringChart($('steering-chart'));
 viewer.showArmLines=$('arm-lines-overlay').checked;viewer.showArmAngles=$('arm-angles-overlay').checked;viewer.fitIntersection=false;
 
@@ -25,14 +26,54 @@ function populate(){
   for(const input of document.querySelectorAll('[data-point]'))input.value=design[input.dataset.side][input.dataset.point][+input.dataset.axis]??'';
   for(const input of document.querySelectorAll('[data-scalar]'))input.value=design[input.dataset.side][input.dataset.scalar]??'';
   angle=0;$('steering-angle').value=0;
+  resetRackOffsetDraft();
 }
 function editorErrors(){
   const errors=[];
-  for(const input of document.querySelectorAll('.steering-workspace input[type="number"]')) {
+  for(const input of document.querySelectorAll('.steering-workspace input[type="number"]:not(#rack-offset)')) {
     const invalid=!input.checkValidity();input.setAttribute('aria-invalid',String(invalid));
     if(invalid)errors.push(`Check ${input.getAttribute('aria-label')}.`);
   }
   return errors;
+}
+function syncRackOffset(){
+  const input=$('rack-offset'),applied=rackLongitudinalOffset(design);
+  if(!rackOffsetPending)input.value=applied??'';
+  const bothKnown=sides.every(side=>Number.isFinite(design[side]?.tieInner?.[0]));
+  const mode=bothKnown?'translate':'set-both',target=input.valueAsNumber;
+  let candidate={ok:false,reason:'Enter a finite target X in millimeters, or reset the entry.'};
+  if(input.value!==''&&Number.isFinite(target)&&Math.abs(target)<=1e7&&input.checkValidity()){
+    try{candidate=setRackLongitudinalOffset(design,target,{mode});}catch(error){candidate={ok:false,reason:`The rack target could not be applied: ${error.message}`};}
+  }else if(input.value!==''&&Number.isFinite(target)&&Math.abs(target)>1e7){
+    candidate={ok:false,reason:'The rack target must be within ±10000000 mm, the coordinate edit bound.'};
+  }
+  const invalid=rackOffsetPending&&!candidate.ok;
+  input.setAttribute('aria-invalid',String(invalid));
+  $('apply-rack-offset').textContent=bothKnown?'Apply rack offset':'Set both rack X values';
+  $('apply-rack-offset').disabled=!rackOffsetPending||!candidate.ok;
+  $('reset-rack-offset').disabled=!rackOffsetPending;
+  const current=Number.isFinite(applied)?`${signed(applied)} mm`:'unknown (both rack-joint X coordinates are not fully defined)';
+  const operation=bothKnown?'Applying shifts both rack-joint X coordinates equally, preserving their X difference and all Y/Z values.':'Set both rack X values assigns the target to both inner joints, including any existing X value; their Y/Z values stay unchanged.';
+  $('rack-offset-status').textContent=(rackOffsetPending?`Target not applied; calculations use the current rack offset ${current}. `:`Current rack offset: ${current}. `)+(invalid?`${candidate.reason} `:'')+operation;
+  $('rack-offset-status').classList.toggle('error',invalid);
+  document.querySelector('.steering-rack-offset').classList.toggle('pending',rackOffsetPending);
+  return candidate;
+}
+function resetRackOffsetDraft(){rackOffsetPending=false;syncRackOffset();}
+function syncPersistenceControls(inputErrors=editorErrors()){
+  let draftErrors;
+  try{draftErrors=validateSteeringDesign(design,{allowIncomplete:true});}catch{draftErrors=['Malformed draft'];}
+  $('save-steering').disabled=rackOffsetPending||!storageReadable||inputErrors.length>0||draftErrors.length>0;
+  $('export-json').disabled=rackOffsetPending||inputErrors.length>0||draftErrors.length>0;
+  $('export-csv').disabled=rackOffsetPending||!ready||!rows.length;
+}
+function applyRackOffset(){
+  const candidate=syncRackOffset();
+  if(!rackOffsetPending||!candidate.ok)return;
+  design=candidate.design;
+  for(const side of sides)document.querySelector(`[data-side="${side}"][data-point="tieInner"][data-axis="0"]`).value=design[side].tieInner[0]??'';
+  resetRackOffsetDraft();markDirty();update();
+  notify(candidate.mode==='set-both'?'Set both rack-joint X coordinates to the entered target. Y/Z values were retained; reference tie-rod lengths are recomputed from the joints.':'Applied the rack midpoint X. Both inner joints moved equally in X; longitudinal staggering and Y/Z were retained. Reference tie-rod lengths are recomputed from the joints.');
 }
 function renderReadouts(result){
   const m=result?.ok?result.metrics:null;
@@ -105,11 +146,7 @@ function update(){
     $('steering-status').classList.toggle('error',inputErrors.length>0);
     $('steering-status').innerHTML=`${missing} input ${missing===1?'item needs':'items need'} attention before calculating. Unknown values are never replaced with zero.<details><summary>Review required inputs</summary><ul>${errors.map(error=>`<li>${escape(error)}</li>`).join('')}</ul></details>`;
   }
-  let draftErrors;
-  try{draftErrors=validateSteeringDesign(design,{allowIncomplete:true});}catch{draftErrors=['Malformed draft'];}
-  $('save-steering').disabled=!storageReadable||inputErrors.length>0||draftErrors.length>0;
-  $('export-json').disabled=inputErrors.length>0||draftErrors.length>0;
-  $('export-csv').disabled=!ready||!rows.length;
+  syncRackOffset();syncPersistenceControls(inputErrors);
   renderTable();showPosition();
 }
 function download(content,type,filename){
@@ -147,6 +184,10 @@ $('steering-workspace').addEventListener('input',event=>{
   else return;
   markDirty();update();
 });
+$('rack-offset').addEventListener('input',()=>{rackOffsetPending=true;syncRackOffset();syncPersistenceControls();$('export-ready').hidden=true;});
+$('rack-offset').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();applyRackOffset();}});
+$('apply-rack-offset').addEventListener('click',applyRackOffset);
+$('reset-rack-offset').addEventListener('click',()=>{resetRackOffsetDraft();syncPersistenceControls();});
 $('steering-angle').addEventListener('input',event=>{angle=+event.target.value;showPosition();});
 $('center-steering').addEventListener('click',()=>{angle=0;showPosition();});
 $('ideal-overlay').addEventListener('change',event=>{viewer.showIdeal=event.target.checked;viewer.draw();});
@@ -179,4 +220,4 @@ $('import-steering').addEventListener('change',async event=>{
 function selectRow(event){const row=event.target.closest('[data-angle]');if(!row||!ready)return;angle=+row.dataset.angle;showPosition();}
 $('steering-sweep').addEventListener('click',selectRow);
 $('steering-sweep').addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selectRow(event);}});
-window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
+window.addEventListener('beforeunload',event=>{if(dirty||rackOffsetPending){event.preventDefault();event.returnValue='';}});

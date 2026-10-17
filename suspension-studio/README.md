@@ -94,6 +94,8 @@ The model excludes suspension travel, compliance, backlash, tire slip and forces
 
 The steering preview also displays included tie-rod/arm angles and extended steering-arm construction lines. Plan angle α and the intersection use the steering axis at outer-ball height (Milliken Fig. 19.3); effective spatial angle β uses the perpendicular steering radius. The readouts distinguish them, report the intersection's axle-local coordinates and rear-axle offset, and provide a fit-to-intersection control. These construction lines are not a solved rolling turn center. Both angles are included in the 5° table and CSV.
 
+The rack-offset editor sets the rack midpoint's longitudinal X relative to the front axle (+ ahead, − behind, in mm). Apply moves both existing inner-joint X coordinates equally, preserving any left/right X difference and all Y/Z inputs. If an X is unknown, the explicitly labeled Set both rack X values action initializes both at that offset. Changes are staged until Apply/Enter; Reset entry discards them. This edits neutral layout and recalculates the reference tie-rod lengths; steering stroke still acts in +Y. Offset is derived from the saved hardpoints, so existing JSON designs remain compatible.
+
 ## Architecture
 
 - `src/coordinates.js`: SAE frame definitions, reflection and alignment signs; `src/migration.js`: versioned import and saved-library conversion.

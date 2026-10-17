@@ -24,6 +24,7 @@ Optional engine and differential envelopes are axis-aligned boxes described by c
 | --- | --- |
 | Wheel bump (jounce) | Upward wheel-center motion relative to the chassis: `Z_solved = Z_static - bump` |
 | Rack displacement | Translation toward the right, +Y, for **both** rack ends |
+| Steering-tool rack longitudinal offset | Midpoint X of the two neutral rack inner joints, relative to the front axle: positive ahead, negative behind; distinct from +Y steering stroke |
 | Rack travel | Total lock-to-lock stroke; slider limits are ±half travel |
 | Steer angle | Wheel-plane heading toward the right, positive about +Z |
 | Toe-in | Front of wheel points toward the center plane; positive on either side |
