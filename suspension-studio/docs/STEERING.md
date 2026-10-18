@@ -79,6 +79,81 @@ Construction numerical choices (not physical limits): use normalized vectors for
 
 Construction checks performed: 14 automated cases include known 90°/135° angles, independent inclined-axis geometry, finite/parallel/coincident/undefined lines, scale/translation and reflection, extended steering-axis endpoints, on-axis roundoff, and neutral/moving/failed solver poses. A separate hand calculation for U=[30,-530,-450], B=[-10,-560,-150], O=[-100,-520,-250], I=[-100,-250,-250] mm gives α=106.189206257027° and β=106.856448253359°; the browser shows 106.19° and 106.86°. The synthetic symmetric example has neutral intersection X=-1833.333333 mm, Y=0, 233.333333 mm behind the nominal rear axle. At +180° wheel input its plan angles are left 89.085304° / right 128.505304° and its intersection is [-1549.802999,-549.467024] mm; reversing input swaps the angles and reflects Y. These are mathematical/software checks, not physical vehicle measurements.
 
+## Nonhorizontal linkage and the 3D viewer
+
+The Python linkage model already evaluates the full XYZ coordinates. Neither the tie
+rod nor the effective steering arm is constrained to be horizontal. In particular,
+the rod constraint is
+
+    (O_X−I_X)² + (O_Y−I_Y)² + (O_Z−I_Z)² = ell².
+
+The 3D rotation about the entered U–B axis changes all applicable components of O,
+the wheel center and the spindle. No projection is used in solving this constraint.
+Different inner-joint heights, inclined axes and nonhorizontal effective arms are
+supported within the fixed-ride, rigid-link, spherical-joint assumptions. The rack's
+motion remains I(q)=I0+[0,q,0]: different rack-end heights do not define a tilted
+actuation axis. Rack travel along another direction needs an explicit additional model.
+
+A useful limiting case prevents an incorrect expectation: for a vertical steering
+axis at fixed ride, both O_Z and I_Z are constant throughout the turn. Their squared
+height difference occurs in both the current constraint and the assembled reference
+length and cancels. Changing only that difference, while reassembling rod length from
+the new reference hardpoints, then leaves the same XY steering relation. For an inclined
+axis O_Z can change with rotation, and the height difference couples into the solution.
+
+An independent synthetic verification uses k=[0,0.6,0.8], C=[0,−550,−250],
+O0=[−100,−526,−268] and I0=[−110,−250,−180] mm. A prescribed 12° upright rotation gives
+q=−13.264892238736 mm by intersecting the rack travel line with the sphere of radius ell
+about the independently rotated outer joint. At g=−60 mm/revolution this is a
+79.589353432416° steering-wheel input. The backend recovers heading 9.574999677828°
+and camber −0.600995140912°. Changing only I0_Z to −268 mm, keeping XY and q fixed
+and reassembling the reference rod length, gives heading 7.400205119311°.
+Additional positive/negative prescribed rotations, independent distance-root checks,
+rigidity and the vertical-axis cancellation case pass. These are synthetic mathematical
+checks, not measurements of the user's assembly.
+
+The original 2D display projects solved joint coordinates as screen-horizontal ∝ Y
+and screen-vertical ∝ −X. Its joints are therefore the actual orthographic XY projection
+of the spatial solution; its fixed-size wheel icons show heading only and omit camber
+and physical tire shape. Its arm is the conventional K–O plan construction, not the
+spatial perpendicular radius C–O. It was not a rendered three-dimensional scene.
+
+The default **3D geometry** view now builds a Three.js scene from those same Python
+results. Actual axis points, inner/outer joints, wheel centers and spindle orientations
+retain all three coordinates. Dashed, side-colored C–O radius references show effective
+steering arms, not an assumed bent-arm casting shape. Wheel-plane orientation rings are perpendicular to the
+returned spindle. Static geometry provides a separate reference. Changing the camera
+does not recalculate kinematics or substitute a planar steering solution.
+
+The display adapter maps SAE coordinates to the renderer by
+
+    [x_render, y_render, z_render] = [Y_SAE, −Z_SAE, −X_SAE].
+
+This dimensionless orthogonal matrix has determinant +1, preserving distances, dot
+products, cross-product handedness and the physical orientation. It changes only display
+basis; saved hardpoints and reported values remain SAE axle-local millimeters. Isometric,
+top, front and side views use an orthographic camera on the same scene; orbit, pan, zoom
+and fit affect the camera only. The separate **2D construction** mode retains the original
+schematic and is labeled accordingly. WebGL unavailability is reported explicitly and
+does not disable Python calculations.
+
+Plan construction overlays are deliberately projected onto the labeled Z=0 reference
+plane. Their intersection is still a planar construction and is not presented as the
+meeting point of spatial steering arms. The spatial β arc uses C−O and I−O; α uses the
+separately defined projected K−O and I−O rays. The displayed radii, link thicknesses,
+markers and wheel-plane ring sizes are visual aids, not measured component dimensions.
+No tire diameter/width, rear-wheel center height, contact patch, real arm contour,
+collision envelope or joint articulation limit is inferred. Rear markers show only
+the nominal rear-axle datum at X=−L on the Z=0 reference plane.
+
+The physical interpretation remains consistent with the previously inspected Seward
+§6.2.1–2 pp.156–158 / PDF pp.167–169 and Milliken §19.1 pp.710–713 / PDF pp.375–376
+on inclined-axis camber and wheel movement, and Milliken Figure 19.3 p.714 / PDF p.377
+for the distinct plan construction. The cross-source comparison above remains applicable;
+no conflicting supplied-source statement changes the Euclidean rigid-link derivation.
+Three.js is a renderer only; its [orthographic camera documentation](https://threejs.org/docs/#OrthographicCamera)
+describes the display projection, not vehicle dynamics.
+
 ## Exact nominal zero-slip Ackermann benchmark
 
 For a planar reference vehicle with straight rear wheels and zero lateral tire slip, the velocity at each wheel must lie in its wheel plane. Therefore the wheel-normal lines pass through the instantaneous turn center on the rear axle extension. For a turn-center distance R_turn from the vehicle center plane and positive inside/outside angle magnitudes,

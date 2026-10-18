@@ -20,7 +20,7 @@ components can have separate costs; no hosting budget or license entitlement is 
 
 The active app is `suspension-studio/`, as directed by the existing `AGENTS.md`. It already
 uses separate native JavaScript modules for models, solvers, persistence, and rendering.
-Its steering and suspension viewers use Canvas 2D. The initial foundation preserved existing files; the subsequent steering port changes only the steering frontend and shared service/documentation.
+The steering tool now has a Three.js 3D scene plus an explicitly labeled Canvas 2D construction view; the suspension viewer and charts retain their existing renderers. The initial foundation preserved existing files; the subsequent steering port changes only the steering frontend and shared service/documentation.
 The root `Dynamics_Dashboard.html`, MATLAB scripts, tire calibration data, archives,
 existing suspension pages, source modules, schemas and tests remain unchanged. The steering page now uses Python while retaining saved design schema v1.
 

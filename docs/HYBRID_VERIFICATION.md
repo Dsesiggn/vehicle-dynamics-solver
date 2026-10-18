@@ -1,5 +1,43 @@
 # Hybrid foundation verification — 2026-10-16
 
+## Spatial steering viewer and inclined-linkage checks — 2026-10-18
+
+The Python fixed-axis model already used full XYZ geometry; its equations, schema and
+API remain unchanged. The steering page now renders an actual Three.js scene from the
+returned joints, wheel centers, spindle directions and constructions. The original 2D
+construction remains explicitly selectable. Camera choices do not change solved results.
+
+- **53 Python tests passed, no skips.** Three new independent tests prescribe rotations
+  of a nonhorizontal arm and tie rod about a known inclined axis, independently recover
+  the rack displacement, check wheel-center/spindle motion and rod closure, change only
+  inner-joint height, and check the vertical-axis constant-height cancellation limit.
+  The existing 463-case JavaScript parity and 73-row sweep checks still pass.
+- **179 Node tests passed, no skips.** Eight new scene tests check the proper SAE-to-Three
+  basis rotation, exact preservation of supplied XYZ data, spindle-normal wheel rings
+  and camber signs, actual spatial beta versus projected alpha, static/pending state
+  isolation, rear-datum semantics, distant intersections and nearly horizontal axes.
+- Independent implementation review found no remaining actionable code defect. A direct
+  camera check exercised isometric/top/front/side at 900×600, 300×600 and 600×200 canvas
+  sizes; all selected geometry bounds stayed inside the clip volume. A contradictory
+  coordinate-document statement was corrected: zero static alignment applies to the
+  suspension solver, while steering accepts explicit static toe/camber inputs.
+- In-app browser: inclined synthetic hardpoints; neutral and positive/negative input;
+  isometric/top/front/side, keyboard orbit/pan/zoom and fit; full-vehicle/intersection fit;
+  3D/2D switching with unchanged readings; out-of-travel static references; clearing an
+  essential Z input; and recovery after restoring inputs. At +80° the synthetic left
+  side reads heading +9.62°, camber −0.61°, alpha 97.01° and beta 94.03°.
+- Light and dark rendering and 1280 px / 390 px layouts were inspected. Narrow layout
+  has no horizontal page overflow. Label overlaps found during inspection were corrected.
+  No console errors or warnings were recorded in the completed verification tab. Touch
+  gestures, physical-device interaction and other browser engines were not exercised.
+
+The derivation and existing supplied-reference evidence in `suspension-studio/docs/STEERING.md`
+were reviewed. No new original-PDF inspection or measured-vehicle validation is claimed.
+Joint articulation limits, real arm/tire contours, collisions, compliance, slip, suspension
+travel and chassis jacking remain outside the model. Rack translation remains along +Y;
+nonhorizontal tie rods do not imply an arbitrary rack actuation direction. Software checks
+establish consistency for the tested cases, not certainty for an unmeasured physical assembly.
+
 ## Steering linkage port — 2026-10-16
 
 The steering page now uses the Python service for its actual spatial rack linkage,

@@ -34,7 +34,11 @@ Optional engine and differential envelopes are axis-aligned boxes described by c
 
 Toe-in is a side-dependent alignment scalar, not a Z rotation component: `toeLeft = steerLeft`, `toeRight = -steerRight`. Identical steer directions therefore produce opposite toe-in signs. Rack direction does not guarantee steer direction; that depends on the linkage geometry and front/behind-axle rack placement.
 
-All current alignment outputs are changes from a nominal zero-camber, zero-toe static wheel. Given the rotated outward unit spindle `n` and side `s` (-1 left, +1 right):
+The suspension solver's alignment outputs are changes from a nominal zero-camber,
+zero-toe static wheel. The fixed-axis steering module instead accepts explicit static
+toe and camber, reports the resulting absolute alignment, and reports toe changes
+separately. Both use the rotated outward unit spindle `n` and side `s` (-1 left,
++1 right):
 
 ```text
 camber = atan2(nZ, hypot(nX, nY))
@@ -42,7 +46,7 @@ steer  = atan2(-s*nX, s*nY)
 toeIn  = -s*steer
 ```
 
-Heading is taken from the intersection of the wheel plane with the level reference road plane. Wheel orientation at static is not yet an input. The six-pose solver uses a Rodrigues rotation vector; its three components must not be interpreted as sequential Euler angles. The bell crank is currently constrained to the longitudinal X axis.
+Heading is taken from the intersection of the wheel plane with the level reference road plane. Static wheel orientation is not yet an input to the suspension solver; the steering module's `staticToeDeg` and `staticCamberDeg` define it as documented in [STEERING.md](STEERING.md). The suspension six-pose solver uses a Rodrigues rotation vector; its three components must not be interpreted as sequential Euler angles. The bell crank is currently constrained to the longitudinal X axis.
 
 For future force models, signed vehicle force components follow these axes: weight acts in +Z; a ground reaction on the vehicle acts in -Z on a level road. A positive tire-load magnitude is a separate scalar and must be converted explicitly. Tire slip, inclination, force-on-road versus force-on-vehicle, and tire-local axes require a declared adapter for each data source.
 

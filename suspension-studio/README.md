@@ -95,6 +95,10 @@ The geometric equations are Euclidean segment/solid distances, not equations att
 
 ## Steering geometry tool
 
+The default **3D geometry** view displays the same XYZ hardpoints, moving joints, wheel centers and spindle orientations returned by Python. Drag to orbit, Shift-drag to pan, scroll to zoom, or choose Isometric / Top / Front / Side. Top is an orthographic camera view of the 3D scene. **2D construction** retains the earlier XY diagram and heading-only wheel icons. Plan arm projections stay visibly separate from the spatial linkage. Ring sizes and line thicknesses are symbolic; real tire dimensions, rear-wheel height and bent-arm shapes are not inferred.
+
+Nonhorizontal tie rods and effective steering arms are already supported by the full spatial rod-length constraint. The rack still moves in +Y and suspension ride position remains fixed. See [the governing model and inclined-geometry checks](docs/STEERING.md#nonhorizontal-linkage-and-the-3d-viewer).
+
 Open [Steering geometry](steering.html) from the workspace navigation. This separate tool solves rack-and-pinion steering with suspension held at a defined ride position. Enter wheelbase, independent front/rear tracks, signed rack travel per steering-wheel revolution, total rack stroke, sweep range, both steering-axis points and both tie-rod joints per side, wheel-center Z, static toe and static camber. Dimensions and angles begin unknown; the explicitly selected synthetic example is not vehicle data. Left/right geometry is independent, with an explicit mirror action if appropriate.
 
 The tool uses spatial rigid-axis rotation and constant tie-rod length to calculate left/right wheel heading, inside/outside turn angles and steering-induced toe at every 5° of steering-wheel input. Its top view and curves compare actual linkage behavior with the nominal zero-slip Ackermann target. CSV exports the sweep; versioned JSON transfers geometry; browser save retains a separate steering draft without changing suspension designs. Complete derivation, source-page evidence, numerical safeguards and validation limits are in [STEERING.md](docs/STEERING.md).

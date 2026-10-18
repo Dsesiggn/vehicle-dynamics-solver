@@ -1,9 +1,13 @@
 # Python steering linkage service
 
-The Steering geometry page now sends complete steering designs to the same-origin
+The Steering geometry page sends complete steering designs to the same-origin
 FastAPI service. Python owns the solved poses, 5° sweep, dynamic toe, nominal Ackermann
 metrics, tie-rod/arm angles and arm-line intersections. JavaScript retains input editing,
-draft storage, static reference drawing and rendering of returned results. The original
+draft storage, static reference drawing and rendering of returned results. The default
+3D viewer retains joint XYZ, wheel-center migration and spindle orientation; its Top
+camera is an orthographic view of the same spatial scene. A separately labeled 2D
+construction mode retains the previous XY projection and heading glyphs. Inclined rods
+and arms were already included in the spatial backend; no planar flattening is used. The original
 JavaScript solver remains as a numerical regression reference; it is not a runtime fallback.
 
 ## Governing model and evidence

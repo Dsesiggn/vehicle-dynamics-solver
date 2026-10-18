@@ -10,9 +10,44 @@ const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const format=(value,digits=2)=>Number.isFinite(value)?value.toFixed(digits):'—';
 const signed=(value,digits=2)=>Number.isFinite(value)?`${value>0?'+':''}${value.toFixed(digits)}`:'—';
 let design=newSteeringDesign(),angle=0,rows=[],dirty=false,ready=false,storageReadable=true,exportUrl=null,currentConstruction=null,rackOffsetPending=false,eligible=false,engineState='idle',engineError=null;
-const viewer=new SteeringViewer($('steering-scene')),chart=new SteeringChart($('steering-chart'));
+const planViewer=new SteeringViewer($('steering-plan-scene')),chart=new SteeringChart($('steering-chart'));
+let spatialViewer=null,viewer=planViewer,viewMode='plan';
+try{
+  const {SteeringViewer3D}=await import('./steering-viewer-3d.js');
+  spatialViewer=new SteeringViewer3D($('steering-scene'));
+  viewer=spatialViewer;viewMode='3d';viewer.frontOnly=true;
+  spatialViewer.onViewChange=name=>{$('steering-camera').value=name;syncViewDescription();};
+  spatialViewer.onUnavailable=message=>{
+    $('steering-viewer-notice').textContent=`3D rendering is unavailable: ${message} The labeled 2D construction view remains available; Python calculations are unchanged.`;
+    $('steering-viewer-notice').hidden=false;$('steering-mode-3d').disabled=true;setViewMode('plan');
+  };
+}catch(error){
+  $('steering-viewer-notice').textContent=`3D rendering could not start: ${error.message}. The labeled 2D construction view remains available; Python calculations are unchanged.`;
+  $('steering-viewer-notice').hidden=false;$('steering-mode-3d').disabled=true;
+}
 viewer.showArmLines=$('arm-lines-overlay').checked;viewer.showArmAngles=$('arm-angles-overlay').checked;viewer.fitIntersection=false;
 const sweepLoader=createSteeringSweepLoader({onState:receiveSweepState});
+
+function syncViewDescription(){
+  const spatial=viewMode==='3d';
+  $('steering-scene').hidden=!spatial;$('steering-plan-scene').hidden=spatial;
+  spatialViewer?.setVisible(spatial);
+  $('steering-mode-3d').setAttribute('aria-pressed',String(spatial));$('steering-mode-plan').setAttribute('aria-pressed',String(!spatial));
+  $('steering-camera-controls').hidden=!spatial;
+  $('steering-view-description').textContent=spatial?'3D hardpoints and wheel-plane orientation · SAE +X forward, +Y right, +Z down':'2D construction · orthographic X–Y joint projection · +X forward ↑ · +Y right →';
+  $('steering-interaction-help').hidden=!spatial;
+  $('arm-lines-label').textContent=spatial?'Plan arm projections':'Arm extensions';
+  $('arm-angles-label').textContent=spatial?'Angles α / β':'Plan angles α';
+  $('steering-graphic-note').textContent=spatial?'Solid linkage follows the actual XYZ joints. Effective arms connect each outer joint to its perpendicular steering-axis foot C. Dashed plan constructions lie on Z = 0. Wheel-plane rings and link thickness are symbolic; tire dimensions and physical arm shapes are not defined. Rear markers show the nominal axle datum, not rear-wheel height.':'Joint positions are projected from the same 3D solution. Plan arm lines join axis point K at outer-ball height to the outer joint. Arcs show α; wheel icons use heading only and do not show camber or tire shape.';
+  $('steering-view').setAttribute('aria-pressed',String(viewer.frontOnly));$('steering-view').textContent=viewer.frontOnly?'Show full vehicle':'Focus front linkage';
+}
+function setViewMode(mode){
+  if(mode==='3d'&&!spatialViewer)return;
+  const next=mode==='3d'?spatialViewer:planViewer;
+  if(next!==viewer)for(const key of ['frontOnly','showIdeal','showArmLines','showArmAngles','fitIntersection'])next[key]=viewer[key];
+  viewer=next;viewMode=mode;syncViewDescription();showPosition();
+  if(mode==='3d'){$('steering-camera').value=spatialViewer.viewName;spatialViewer.fit();}
+}
 
 function notify(message,error=false){$('steering-notice').textContent=message;$('steering-notice').classList.toggle('error',error);$('steering-notice').hidden=false;}
 function markDirty(){dirty=true;$('steering-save-state').textContent='Unsaved changes';}
@@ -95,7 +130,7 @@ function receiveSweepState(state){
 }
 function renderReadouts(result){
   const m=result?.ok?result.metrics:null;
-  const values=[['Left heading',result?.ok?result.left.headingDeg:null,'°'],['Right heading',result?.ok?result.right.headingDeg:null,'°'],['Rack displacement',result?.ok?result.rack:null,'mm'],['Total toe-in',m?.totalToeInDeg,'°'],['Δ total toe-in',m?.deltaTotalToeInDeg,'°'],['Outside angle error',m?.ackermannErrorDeg,'°']];
+  const values=[['Left heading',result?.ok?result.left.headingDeg:null,'°'],['Right heading',result?.ok?result.right.headingDeg:null,'°'],['Rack displacement',result?.ok?result.rack:null,'mm'],['Total toe-in',m?.totalToeInDeg,'°'],['Δ total toe-in',m?.deltaTotalToeInDeg,'°'],['Outside angle error',m?.ackermannErrorDeg,'°'],['Left camber',result?.ok?result.left.camberDeg:null,'°'],['Right camber',result?.ok?result.right.camberDeg:null,'°']];
   $('steering-readouts').innerHTML=values.map(([label,value,unit])=>`<dl class="steering-readout"><dt>${label}</dt><dd>${signed(value)} <small>${unit}</small></dd></dl>`).join('');
   $('turn-badge').textContent=m?m.turn==='straight'?'Straight ahead':m.turn==='mixed'?'Mixed headings':`${m.turn==='right'?'Right':'Left'} turn · ${m.insideSide} inside`:'Awaiting geometry';
 }
@@ -189,7 +224,7 @@ try {
   const saved=localStorage.getItem(STORAGE);
   if(saved){const parsed=JSON.parse(saved),errors=validateSteeringDesign(parsed,{allowIncomplete:true});if(errors.length){storageReadable=false;notify('The saved steering draft could not be opened. It has been retained and Save is disabled. Export JSON to keep new work.',true);}else{design=parsed;$('steering-save-state').textContent='Saved draft restored';notify('Restored the steering draft saved in this browser.');}}
 }catch{storageReadable=false;notify('Browser storage could not be read. Export JSON to keep your work; the stored draft will not be overwritten.',true);}
-populate();update();
+syncViewDescription();populate();update();
 
 $('steering-workspace').addEventListener('input',event=>{
   const input=event.target;
@@ -208,6 +243,10 @@ $('steering-angle').addEventListener('input',event=>{angle=+event.target.value;s
 $('retry-steering').addEventListener('click',()=>{if(eligible)update();});
 $('center-steering').addEventListener('click',()=>{angle=0;showPosition();});
 $('ideal-overlay').addEventListener('change',event=>{viewer.showIdeal=event.target.checked;viewer.draw();});
+$('steering-mode-3d').addEventListener('click',()=>setViewMode('3d'));
+$('steering-mode-plan').addEventListener('click',()=>setViewMode('plan'));
+$('steering-camera').addEventListener('change',event=>{if(spatialViewer&&event.target.value!=='orbit')spatialViewer.setView(event.target.value);});
+$('fit-steering-view').addEventListener('click',()=>spatialViewer?.fit());
 $('steering-view').addEventListener('click',()=>{viewer.frontOnly=!viewer.frontOnly;viewer.fitIntersection=false;syncIntersectionFit();$('steering-view').setAttribute('aria-pressed',String(viewer.frontOnly));$('steering-view').textContent=viewer.frontOnly?'Show full vehicle':'Focus front linkage';viewer.draw();});
 $('arm-lines-overlay').addEventListener('change',event=>{viewer.showArmLines=event.target.checked;syncIntersectionFit();viewer.draw();});
 $('arm-angles-overlay').addEventListener('change',event=>{viewer.showArmAngles=event.target.checked;viewer.draw();});

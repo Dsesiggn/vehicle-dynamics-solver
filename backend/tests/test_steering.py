@@ -28,6 +28,40 @@ from steering_fixtures import (
 )
 
 
+def inclined_linkage_fixture():
+    """Known basis k=(0,.6,.8), e1=(1,0,0), e2=(0,.8,-.6).
+
+    C=(0,-550,-250), initial arm=-100e1+30e2. The arm and tie rod
+    both have nonzero Z extent; rack joints also have different heights.
+    The specified travel direction is still +Y, not along their joining line.
+    """
+    source = design()
+    source["left"].update(
+        axisUpper=[0, -640, -370], axisLower=[0, -460, -130],
+        tieOuter=[-100, -526, -268], tieInner=[-110, -250, -180],
+        wheelCenterZ=-247,
+    )
+    return source
+
+
+def prescribed_spatial_outer(phi):
+    """Rotate two coordinates in the known arm plane, not the inverse solver."""
+    u = -100 * math.cos(phi) - 30 * math.sin(phi)
+    v = -100 * math.sin(phi) + 30 * math.cos(phi)
+    return [u, -550 + 0.8 * v, -250 - 0.6 * v]
+
+
+def prescribed_rack_displacement(source, phi):
+    outer = prescribed_spatial_outer(phi)
+    inner = source["left"]["tieInner"]
+    length = math.dist(source["left"]["tieOuter"], inner)
+    # (Oy-Iy-q)^2 = ell^2-(Ox-Ix)^2-(Oz-Iz)^2. The plus root
+    # yields q=0 at phi=0 because this left-side reference has Oy<Iy.
+    return outer[1] - inner[1] + math.sqrt(
+        length**2 - (outer[0] - inner[0])**2 - (outer[2] - inner[2])**2
+    )
+
+
 class SteeringTests(unittest.TestCase):
     def solved(self, source, angle):
         result = solve_steering(source, angle)
@@ -134,6 +168,94 @@ class SteeringTests(unittest.TestCase):
             self.assertAlmostEqual(result["left"]["headingDeg"], degrees, delta=1e-10)
             self.vector_close(result["left"]["outer"], [x, y, -250])
             self.assertAlmostEqual(result["left"]["tieLength"], 270, delta=1e-12)
+
+    def test_prescribed_spatial_rotation_with_nonhorizontal_arm_and_tie(self):
+        source = inclined_linkage_fixture()
+        for degrees in (-20, -12, 12, 20):
+            phi = math.radians(degrees)
+            expected_outer = prescribed_spatial_outer(phi)
+            rack = prescribed_rack_displacement(source, phi)
+            result = self.solved(source, rack * 360 / source["rackMmPerRevolution"])
+            solved = result["left"]
+            self.assertAlmostEqual(solved["rotationDeg"], degrees, delta=1e-10)
+            self.vector_close(solved["outer"], expected_outer)
+            # Initial outward spindle (0,-1,0) = -.8e2-.6k. Rotate only
+            # its e1/e2 components; the axis component stays unchanged.
+            expected_spindle = [0.8 * math.sin(phi), -0.64 * math.cos(phi) - 0.36,
+                                0.48 * (math.cos(phi) - 1)]
+            expected_heading = math.degrees(math.atan2(expected_spindle[0], -expected_spindle[1]))
+            expected_camber = math.degrees(math.atan2(expected_spindle[2], math.hypot(*expected_spindle[:2])))
+            self.vector_close(solved["spindle"], expected_spindle, 1e-12)
+            self.assertAlmostEqual(solved["headingDeg"], expected_heading, delta=1e-10)
+            self.assertAlmostEqual(solved["camberDeg"], expected_camber, delta=1e-10)
+            # Its reference offset from C=(0,-550,-250) is (0,-50,3),
+            # so its basis components are -41.8e2-27.6k. Left and right
+            # wheel-center heights deliberately differ in this assembly.
+            expected_wheel_center = [41.8 * math.sin(phi), -566.56 - 33.44 * math.cos(phi),
+                                     -272.08 + 25.08 * math.cos(phi)]
+            self.vector_close(solved["wheelCenter"], expected_wheel_center)
+            self.assertAlmostEqual(math.dist(solved["outer"], solved["inner"]), solved["tieLength"], delta=1e-9)
+            for side in ("left", "right"):
+                self.vector_close(result[side]["inner"], [source[side]["tieInner"][0],
+                                  source[side]["tieInner"][1] + rack, source[side]["tieInner"][2]])
+            construction = steering_construction(source, result)["left"]
+            self.vector_close(construction["axisFoot"], [0, -550, -250])
+            # Milliken's plan point is at current outer-ball height, whereas
+            # the perpendicular radius root C remains fixed on this axis.
+            expected_plan_root = [0, -550 + 0.75 * (expected_outer[2] + 250), expected_outer[2]]
+            self.vector_close(construction["planAxisPoint"], expected_plan_root)
+            self.assertGreater(abs(construction["spatialAngleDeg"] - construction["planAngleDeg"]), 0.1)
+
+    def test_changing_only_inner_height_changes_inclined_axis_steering(self):
+        source = inclined_linkage_fixture()
+        rack = prescribed_rack_displacement(source, math.radians(12))
+        steering_wheel = rack * 360 / source["rackMmPerRevolution"]
+        original = self.solved(source, steering_wheel)
+        for inner_z in (-268, -340):
+            changed = deepcopy(source)
+            changed["left"]["tieInner"][2] = inner_z
+            actual = self.solved(changed, steering_wheel)
+            # A separate direct-distance bisection in a known local bracket
+            # independently finds the rotation at this fixed rack displacement.
+            # Each edited reference assembly has its own measured/adjusted rod
+            # length; moving a built rack with its old fixed rod is not modeled.
+            reference_length = math.dist(changed["left"]["tieOuter"], changed["left"]["tieInner"])
+            moved_inner = [-110, -250 + rack, inner_z]
+
+            def residual(phi):
+                return math.dist(prescribed_spatial_outer(phi), moved_inner) - reference_length
+
+            lower, upper = 0.0, math.radians(30)
+            lower_residual = residual(lower)
+            self.assertLess(lower_residual * residual(upper), 0)
+            for _ in range(70):
+                middle = (lower + upper) / 2
+                if lower_residual * residual(middle) > 0:
+                    lower, lower_residual = middle, residual(middle)
+                else:
+                    upper = middle
+            expected_phi = (lower + upper) / 2
+            expected_heading = math.degrees(math.atan2(0.8 * math.sin(expected_phi),
+                                                       0.64 * math.cos(expected_phi) + 0.36))
+            self.assertAlmostEqual(actual["left"]["rotationDeg"], math.degrees(expected_phi), delta=1e-10)
+            self.assertAlmostEqual(actual["left"]["headingDeg"], expected_heading, delta=1e-10)
+            self.assertGreater(abs(actual["left"]["headingDeg"] - original["left"]["headingDeg"]), 2)
+            self.assertEqual(actual["right"], original["right"])
+
+    def test_vertical_axis_height_offset_cancels_in_fixed_ride_closure(self):
+        # With a vertical axis, outer Z never moves. The constant squared
+        # tie-height difference appears on both sides of the length constraint,
+        # so height alone cannot change the angle if the reference rod is resized.
+        source = design()
+        for steering_wheel in (-120, 120):
+            original = self.solved(source, steering_wheel)
+            for inner_z in (-350, -150):
+                changed = deepcopy(source)
+                changed["left"]["tieInner"][2] = inner_z
+                actual = self.solved(changed, steering_wheel)
+                self.assertAlmostEqual(actual["left"]["headingDeg"], original["left"]["headingDeg"], delta=1e-10)
+                self.vector_close(actual["left"]["outer"], original["left"]["outer"])
+                self.assertGreater(actual["left"]["tieLength"], original["left"]["tieLength"])
 
     def test_static_toe_and_camber_signs(self):
         source = tilted_design()
