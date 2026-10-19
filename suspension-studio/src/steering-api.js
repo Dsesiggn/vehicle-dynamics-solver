@@ -5,6 +5,7 @@ const record = value => value !== null && typeof value === 'object' && !Array.is
 const point = value => Array.isArray(value) && value.length === 3 && value.every(finite);
 const nullableNumber = value => value === null || finite(value);
 const nullablePoint = value => value === null || point(value);
+const timeoutMessage = 'The Python calculation engine did not respond in time. A hosted server may be waking up; wait about a minute and select Retry calculation. For a local session, check that the Python server is running.';
 
 export class SteeringApiError extends Error {
   constructor(code, message) { super(message); this.name = 'SteeringApiError'; this.code = code; }
@@ -64,21 +65,21 @@ export async function requestSteeringSweep(design, {signal,fetchImpl=globalThis.
     if (signal?.aborted) throw signal.reason || new DOMException('Request cancelled', 'AbortError');
     const response = await fetchImpl(url, {method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({design}),signal:controller.signal,cache:'no-store',credentials:'same-origin'});
     if (signal?.aborted) throw signal.reason || new DOMException('Request cancelled', 'AbortError');
-    if (timedOut) throw new SteeringApiError('ENGINE_TIMEOUT', 'The Python calculation engine did not respond within 15 seconds. Check the server and retry.');
+    if (timedOut) throw new SteeringApiError('ENGINE_TIMEOUT', timeoutMessage);
     if (!response.ok) {
       if ([404,405,501].includes(response.status)) throw new SteeringApiError('ENGINE_UNAVAILABLE', 'This address does not provide the Python steering API. A static server can open the editor but cannot calculate steering.');
       if (response.status===422) throw new SteeringApiError('INPUT_REJECTED', 'The Python engine rejected this geometry. Review the dimensions and coordinate inputs, then retry.');
       throw new SteeringApiError('ENGINE_ERROR', `The Python engine returned HTTP ${response.status}. Calculated results have been cleared.`);
     }
-    if (!(response.headers.get('content-type')||'').includes('application/json')) throw new SteeringApiError('ENGINE_UNAVAILABLE', 'This address returned a page instead of the Python steering response. Open the Python application server.');
+    if (!(response.headers.get('content-type')||'').includes('application/json')) throw new SteeringApiError('ENGINE_UNAVAILABLE', 'This address returned a page instead of the Python steering response. A hosted server may be waking up; wait about a minute and select Retry calculation. If this persists, check that this address runs the Python service.');
     let data;
     try {data=await response.json();} catch {throw new SteeringApiError('INVALID_RESPONSE', 'The Python engine returned unreadable data. Calculated results have been cleared.');}
     if (signal?.aborted) throw signal.reason || new DOMException('Request cancelled', 'AbortError');
-    if (timedOut) throw new SteeringApiError('ENGINE_TIMEOUT', 'The Python calculation engine did not respond within 15 seconds. Check the server and retry.');
+    if (timedOut) throw new SteeringApiError('ENGINE_TIMEOUT', timeoutMessage);
     return validateSteeringSweepResponse(data,design);
   } catch (error) {
     if (signal?.aborted) throw error;
-    if (timedOut) throw new SteeringApiError('ENGINE_TIMEOUT', 'The Python calculation engine did not respond within 15 seconds. Check the server and retry.');
+    if (timedOut) throw new SteeringApiError('ENGINE_TIMEOUT', timeoutMessage);
     if (error instanceof SteeringApiError) throw error;
     throw new SteeringApiError('CONNECTION_FAILED', 'The Python engine could not be reached. Check the application server and retry.');
   } finally {clearTimeout(timer);signal?.removeEventListener('abort',cancel);}

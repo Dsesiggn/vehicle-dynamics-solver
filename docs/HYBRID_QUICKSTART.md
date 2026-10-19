@@ -1,5 +1,10 @@
 # Run the hybrid application
 
+**Using a computer that cannot install Python?** Open the application on a Python
+web host instead. [Browser-only deployment](WEB_DEPLOYMENT.md) includes the Render
+template, GitHub update setup, and the checks required before calling a hosted URL
+ready. The visiting computer only needs a compatible browser and network access.
+
 From the **Vehicle Dynamics Simulation Tool** folder, one time with internet access:
 
 ```sh
@@ -83,7 +88,10 @@ start with networking disabled on a clean target machine before calling that bui
 or standalone. Add a desktop window wrapper only if it improves the workflow; no wrapper
 or PyInstaller installation is required for the current local app.
 
-## Later web deployment
+## Web deployment
+
+For the configured Render deployment, follow [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md).
+The same-origin service below also supports another Python-capable host.
 
 For a host that runs Python, use the same code and installed requirements:
 

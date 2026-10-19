@@ -31,11 +31,11 @@ async function request(path, { signal, body } = {}) {
       throw new CalculationError('ENGINE_ERROR', `The calculation engine returned HTTP ${response.status}. No result has been retained.`);
     }
     const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) throw new CalculationError('INVALID_RESPONSE', 'This address did not return a calculation response. Start the Python application server.');
+    if (!contentType.includes('application/json')) throw new CalculationError('INVALID_RESPONSE', 'This address returned a page instead of a calculation response. A hosted server may be waking up; wait about a minute and retry. If this persists, check that this address runs the Python service.');
     try { return await response.json(); }
     catch { throw new CalculationError('INVALID_RESPONSE', 'The calculation engine returned unreadable data.'); }
   } catch (error) {
-    if (timedOut) throw new CalculationError('ENGINE_TIMEOUT', 'The calculation engine did not respond within 15 seconds. Try again after checking the local server.');
+    if (timedOut) throw new CalculationError('ENGINE_TIMEOUT', 'The calculation engine did not respond within 15 seconds. A hosted server may be waking up; wait about a minute and retry. For a local session, check that the Python server is running.');
     if (signal?.aborted) throw error;
     if (error instanceof CalculationError) throw error;
     throw new CalculationError('CONNECTION_FAILED', 'The calculation engine could not be reached. Check that the application server is running, then try again.');

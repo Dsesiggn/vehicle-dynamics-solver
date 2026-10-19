@@ -1,5 +1,42 @@
 # Hybrid foundation verification — 2026-10-16
 
+## Hosted deployment preparation — 2026-10-18
+
+The intended client is an administrator-managed computer without a local Python
+installation. A same-origin Python web service hosts the existing application and
+steering API; no numerical solver, geometry schema, units or coordinate convention
+changes are introduced by deployment.
+
+- Downloaded the published commit `637af57a8d8e1a8afe97032506c70e8912cfc67f` as a
+  GitHub source ZIP. All 91 audited application/backend/documentation files matched
+  the working copy before this change. No virtual environment was in the archive.
+- Ran the project's setup script in that separate extracted directory. The clean
+  Python 3.14.5 environment installed the pinned dependencies successfully; its
+  **53 Python tests and 179 Node tests passed without skips**.
+- Added a Render Free Python-service Blueprint, linked to the actual complete-app
+  branch, with health checks and automatic deployment after GitHub CI checks pass.
+  Added a Linux CI workflow for the regression suites and real HTTP startup. These
+  configuration files do not themselves create a hosting account or live service.
+- With the deployment changes, **58 Python tests passed without skips**. Five new
+  tests cover environment-only commit identity, explicit unknown revisions,
+  cache headers on pages/API/errors, and fresh module responses even if old file
+  validators match a new equal-size/equal-timestamp module. Vendor caching remains
+  unchanged. These checks verify software behavior, not measured vehicle accuracy.
+- In-app browser through the local FastAPI service on a fresh origin: suspension
+  startup and navigation to steering; synthetic 73-row sweep; +180-degree selection;
+  visible 3D geometry and no recorded console errors/warnings. The selected example
+  retains +16.68/+18.65-degree left/right headings. This is local browser verification,
+  not a remote deployment or a test on the user's managed computer.
+- Hosted timeout/loading-page guidance now explains wakeup and retry without
+  requiring Python installation on the visiting computer. Inputs and explicit
+  failure handling remain unchanged; no fallback solver is introduced.
+
+At preparation time, Render account connection, the first Linux CI run, the actual
+HTTPS deployment, sleep/wake behavior on that host, and access/WebGL on the managed
+computer remain to be verified. See [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) for setup,
+version checks and design transfer. Do not interpret a source publication as a
+successfully deployed site.
+
 ## Spatial steering viewer and inclined-linkage checks — 2026-10-18
 
 The Python fixed-axis model already used full XYZ geometry; its equations, schema and

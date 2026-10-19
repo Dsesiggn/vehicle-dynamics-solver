@@ -4,6 +4,12 @@ A suspension design workspace with a Python steering engine. The original root a
 
 ## Run
 
+For a computer where Python cannot be installed, use a hosted copy of the complete
+application. See [browser-only deployment](../docs/WEB_DEPLOYMENT.md) for the included
+Render setup and automatic GitHub updates. GitHub Pages alone cannot run the steering
+backend. A hosting account and a successful deployment are required for the full
+public URL; a source-code download is not a running website.
+
 For the steering linkage tool and engineering workbench, run the Python service from the repository root:
 
 ```sh

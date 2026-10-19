@@ -119,7 +119,7 @@ function renderEngineState(){
   if(engineState==='error')$('steering-engine-help').open=true;
   const empty=$('steering-preview-empty');empty.hidden=ready;
   empty.querySelector('strong').textContent=engineState==='loading'?'Calculating steering…':engineState==='error'?'Calculated geometry unavailable.':'Start with your geometry.';
-  empty.querySelector('span').textContent=engineState==='loading'?'Previous calculated results are cleared while the Python engine evaluates this layout.':engineState==='error'?'Your draft is retained. Start or reconnect the Python application server, then retry.':'Unknown values stay blank. Enter the dimensions and joint centers, or inspect the labeled synthetic example.';
+  empty.querySelector('span').textContent=engineState==='loading'?'Previous calculated results are cleared while the Python engine evaluates this layout.':engineState==='error'?'Your draft is retained. Follow the calculation-engine message, then select Retry calculation.':'Unknown values stay blank. Enter the dimensions and joint centers, or inspect the labeled synthetic example.';
 }
 function receiveSweepState(state){
   engineState=state.status;engineError=state.error||null;rows=state.status==='ready'?state.rows:[];ready=state.status==='ready';
