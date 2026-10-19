@@ -52,6 +52,14 @@ workflow runs Python/API/parity tests and the Studio JavaScript tests, then star
 the real service and checks its HTTP routes. Check that GitHub Actions is enabled
 and the workflow completes successfully for the branch before relying on auto-deploy.
 
+If the service was created from the public template before GitHub was connected,
+its initial deployment can work while later commits do not deploy. In the existing
+service's **Settings → Source → Edit**, use **Git Provider**, connect Render's GitHub
+app with access limited to this repository, and select the repository there. Confirm
+**`codex/hybrid-engineering-backend`** again: the source-change form can default to
+`main`. Keep the Python build/start commands above. The configured service's GitHub
+connection was completed with the repository owner's approval on 2026-10-18.
+
 ## Updates and version verification
 
 The current full application is on `codex/hybrid-engineering-backend`; the repository's
