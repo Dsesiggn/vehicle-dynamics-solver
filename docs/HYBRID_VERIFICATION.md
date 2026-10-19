@@ -31,11 +31,28 @@ changes are introduced by deployment.
   requiring Python installation on the visiting computer. Inputs and explicit
   failure handling remain unchanged; no fallback solver is introduced.
 
-At preparation time, Render account connection, the first Linux CI run, the actual
-HTTPS deployment, sleep/wake behavior on that host, and access/WebGL on the managed
-computer remain to be verified. See [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) for setup,
-version checks and design transfer. Do not interpret a source publication as a
-successfully deployed site.
+Subsequent hosted verification:
+
+- [GitHub Actions run 39194452253](https://github.com/Dsesiggn/vehicle-dynamics-solver/actions/runs/39194452253)
+  passed on Linux with Python 3.14.5 and Node 22: all **58 Python** and **179 Node**
+  tests, no skips, plus the actual launcher/HTTP/version checks.
+- Render created the **Free Python 3** service `vehicle-dynamics-studio`. Its first
+  deployment succeeded; public HTTPS health reported exact source commit
+  `f6c2494ed22c409d27ac4a61e174ffc3b0eff903` from `RENDER_GIT_COMMIT`. The selected branch
+  is `codex/hybrid-engineering-backend`, health path `/api/v1/health`, and auto-deploy
+  setting **After CI Checks Pass**.
+- Public HTTPS browser checks in Chrome: suspension `studioState=ready`, same-origin
+  steering navigation, 73-position synthetic sweep, +180-degree input, 3D scene,
+  +16.68/+18.65-degree left/right headings and no recorded console warnings/errors.
+- Public API comparison against the local Python service model covered two full
+  73-row sweeps: the planar synthetic case (73 solved) and an inclined-linkage case
+  (70 solved, three explicit infeasible rows). All response values and failure
+  states agreed. Across 11,530 numeric comparisons the largest absolute difference
+  was 9.55e-12, within the check's 1e-9 absolute / 1e-12 relative tolerances.
+
+The live URLs and service dashboard are recorded in [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md).
+The managed computer's own network/WebGL policy and a full hosted sleep/wake cycle
+have not been exercised. These are deployment/software checks, not physical validation.
 
 ## Spatial steering viewer and inclined-linkage checks — 2026-10-18
 

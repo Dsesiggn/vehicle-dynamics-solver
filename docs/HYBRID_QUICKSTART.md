@@ -1,9 +1,10 @@
 # Run the hybrid application
 
-**Using a computer that cannot install Python?** Open the application on a Python
-web host instead. [Browser-only deployment](WEB_DEPLOYMENT.md) includes the Render
-template, GitHub update setup, and the checks required before calling a hosted URL
-ready. The visiting computer only needs a compatible browser and network access.
+**Using a computer that cannot install Python?** Open the hosted
+[Suspension Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/)
+or [Steering Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/steering.html).
+The visiting computer only needs a compatible browser and network access.
+[Browser-only deployment](WEB_DEPLOYMENT.md) explains updates and design transfer.
 
 From the **Vehicle Dynamics Simulation Tool** folder, one time with internet access:
 

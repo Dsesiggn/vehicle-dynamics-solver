@@ -1,5 +1,17 @@
 # Browser-only Suspension Studio
 
+The configured service is live:
+
+- [Open Suspension Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/)
+- [Open Steering Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/steering.html)
+- [Deployed version and health](https://vehicle-dynamics-studio.onrender.com/api/v1/health)
+
+The owner's existing deployment is managed in the
+[Render service dashboard](https://dashboard.render.com/web/srv-dbaoro61egvs73bi1pg0)
+and [Suspension Studio Blueprint](https://dashboard.render.com/blueprint/exs-dbaorebbc2fs73c7d760).
+Use those existing resources for updates; the setup section below is for creating
+a separate installation, not a step required on each visiting computer.
+
 Run the complete studio on a Python web host, then open its HTTPS address on any
 computer with a compatible browser. The visiting computer needs no Python, terminal,
 software installation, or administrator privileges. Its network must allow access to
@@ -12,7 +24,7 @@ geometry and 5-degree sweep. Hosting does not change the mathematical model. The
 method and applicability limits remain in [STEERING_BACKEND.md](STEERING_BACKEND.md)
 and [the steering method notes](../suspension-studio/docs/STEERING.md).
 
-## Set up Render once
+## Set up a separate Render installation
 
 The repository includes [render.yaml](../render.yaml) for a single **Free Python web
 service**. No database, disk, paid instance, or custom domain is required.

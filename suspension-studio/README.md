@@ -4,11 +4,12 @@ A suspension design workspace with a Python steering engine. The original root a
 
 ## Run
 
-For a computer where Python cannot be installed, use a hosted copy of the complete
-application. See [browser-only deployment](../docs/WEB_DEPLOYMENT.md) for the included
-Render setup and automatic GitHub updates. GitHub Pages alone cannot run the steering
-backend. A hosting account and a successful deployment are required for the full
-public URL; a source-code download is not a running website.
+For a computer where Python cannot be installed, open the hosted
+[Suspension Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/)
+or [Steering Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/steering.html).
+Both use the same deployed application; steering calculations run on the server.
+See [browser-only deployment](../docs/WEB_DEPLOYMENT.md) for updates, version checks,
+and transferring designs. GitHub Pages alone cannot run the steering backend.
 
 For the steering linkage tool and engineering workbench, run the Python service from the repository root:
 
