@@ -1,16 +1,32 @@
 # Suspension Studio
 
-A new, dependency-free suspension design workspace. All original repository files remain unchanged. This app is a foundation for a vehicle dynamics application, not a complete vehicle dynamics simulator.
+A suspension design workspace with a Python steering engine. The original root applications are preserved. This app is a foundation for a vehicle dynamics application, not a complete vehicle dynamics simulator.
 
 ## Run
 
-From the repository root:
+For a computer where Python cannot be installed, open the hosted
+[Suspension Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/)
+or [Steering Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/steering.html).
+Both use the same deployed application; steering calculations run on the server.
+See [browser-only deployment](../docs/WEB_DEPLOYMENT.md) for updates, version checks,
+and transferring designs. GitHub Pages alone cannot run the steering backend.
+
+For the steering linkage tool and engineering workbench, run the Python service from the repository root:
+
+```sh
+python3 setup_hybrid.py
+.venv-hybrid/bin/python run_hybrid.py --open
+```
+
+Setup is needed once. Open `http://127.0.0.1:8767/suspension-studio/steering.html` for steering. The service calculates the wheel poses, 5° sweep and construction geometry; no JavaScript calculation fallback runs if it is unavailable. See [the hybrid quickstart](../docs/HYBRID_QUICKSTART.md) and [steering backend contract](../docs/STEERING_BACKEND.md).
+
+The suspension editor still supports a static server:
 
 ```sh
 python3 -m http.server 8766 --bind 127.0.0.1
 ```
 
-Open http://127.0.0.1:8766/suspension-studio/ in a modern browser and keep Terminal running. Or open [the hosted app](https://dsesiggn.github.io/vehicle-dynamics-solver/suspension-studio/), which needs no local server. No package installation or build step is required.
+Open http://127.0.0.1:8766/suspension-studio/ in a modern browser and keep Terminal running. Or open [the hosted suspension editor](https://dsesiggn.github.io/vehicle-dynamics-solver/suspension-studio/), which needs no local server. The static suspension editor needs no package installation or build step; static hosting cannot execute the Python steering engine.
 
 ES modules require HTTP/HTTPS; opening `index.html` directly with a `file://` address is not supported. The startup screen now explains this and links to the hosted app and local setup. It prevents editing an uninitialized workspace. HTTP startup also reports missing required browser features or module-load errors instead of leaving a silent blank viewer. Browser requirements include Canvas 2D, native dialogs, ResizeObserver, structuredClone, and Object.hasOwn. The source of the file-origin restriction is [MDN’s JavaScript modules guide](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules#other_differences_between_modules_and_classic_scripts).
 
@@ -25,7 +41,15 @@ Saved libraries belong to the browser and web origin. The hosted app and a local
 5. Open **Explore kinematics** to solve wheel bump and rack displacement. The preview shows the solved axle, or the static geometry with an explicit failure message when no solution is found.
 6. Enter compression/rebound magnitudes and the shared link OD in **Heave interference check**. The default travel is 25.4 mm in each direction; the shared OD is blank until entered. Run the full sweep, then use the travel slider or a listed event to inspect the solved pose and colliding members.
 7. Optionally enter engine, differential, and cockpit packaging envelopes. Check **Show in preview** to draw a translucent static shape; complete visible shapes also enter the heave clearance check. Use **Fit all** to frame the suspension and visible envelopes.
-8. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Data does not leave the browser.
+8. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Suspension calculations remain in the browser; steering designs are sent to the same-origin Python service for calculation and are not stored there.
+
+## Hardpoint editing and live preview
+
+**Define hardpoints** places the coordinate table beside the live preview on desktop. Use **Front hardpoints** and **Rear hardpoints** to select the axle, and **Configure vehicle** to return to dimensions and topology. Accepted coordinate changes update and reframe the preview immediately. Coordinates are not rounded to two decimal places by the editor.
+
+Incomplete or invalid entries remain editable. A persistent message explains why they have not been applied, and the preview displays the last accepted static geometry. Saving, exporting and solving stay disabled while either axle has unaccepted edits. Correct the entries or use **Discard unaccepted edits** to restore the accepted coordinates. Pending edits are not saved in the design library.
+
+This is an input-validation and rendering change, not a new kinematic model. The existing symmetric-left-corner convention is unchanged: editing wheel-center Y sets track to `−2Y`, and editing rack-inner Y sets rack length to `−2Y`, in mm. Other coordinate edits preserve the existing widths. The editor evaluates all pending coordinate changes together against the existing design validation before replacing the accepted axle; blanks never become zero. See [the coordinate contract](docs/COORDINATES.md).
 
 ## Appearance
 
@@ -85,6 +109,10 @@ The geometric equations are Euclidean segment/solid distances, not equations att
 - Spring/damper OD controls the rendered packaging envelopes; the damper OD is also used in heave interference checks. Tire tread width controls the optional tread-band preview and is excluded from interference checks. See the declared scopes and limitations above.
 
 ## Steering geometry tool
+
+The default **3D geometry** view displays the same XYZ hardpoints, moving joints, wheel centers and spindle orientations returned by Python. Drag to orbit, Shift-drag to pan, scroll to zoom, or choose Isometric / Top / Front / Side. Top is an orthographic camera view of the 3D scene. **2D construction** retains the earlier XY diagram and heading-only wheel icons. Plan arm projections stay visibly separate from the spatial linkage. Ring sizes and line thicknesses are symbolic; real tire dimensions, rear-wheel height and bent-arm shapes are not inferred.
+
+Nonhorizontal tie rods and effective steering arms are already supported by the full spatial rod-length constraint. The rack still moves in +Y and suspension ride position remains fixed. See [the governing model and inclined-geometry checks](docs/STEERING.md#nonhorizontal-linkage-and-the-3d-viewer).
 
 Open [Steering geometry](steering.html) from the workspace navigation. This separate tool solves rack-and-pinion steering with suspension held at a defined ride position. Enter wheelbase, independent front/rear tracks, signed rack travel per steering-wheel revolution, total rack stroke, sweep range, both steering-axis points and both tie-rod joints per side, wheel-center Z, static toe and static camber. Dimensions and angles begin unknown; the explicitly selected synthetic example is not vehicle data. Left/right geometry is independent, with an explicit mirror action if appropriate.
 

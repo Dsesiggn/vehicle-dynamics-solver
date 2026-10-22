@@ -26,7 +26,9 @@ export class SuspensionViewer {
     const current=new Set(OBSTACLE_TYPES.filter(({key})=>context.obstacles?.[key]?.visible&&obstacleMesh(context.obstacles[key],key,context.activeAxle,context.wheelbase)).map(({key})=>key));
     const arbPreview=arbPreviewGeometry(a.antiRollBar),arbSignature=JSON.stringify(arbPreview.points.map(({key,position})=>[key,position]));
     const treadWidth=a.tireTreadWidth??null,treadWidthChanged=treadWidth!==this.lastTireTreadWidth&&(treadWidth!==null||this.lastTireTreadWidth!=null);
-    if(treadWidthChanged||[...current].some(key=>!this.visibleObstacleKeys.has(key))||arbPreview.points.length&&arbSignature!==this.lastArbSignature||this.lastAxle&&this.lastAxle!==context.activeAxle&&(current.size||arbPreview.points.length)){this.fitMode=true;this.zoom=1;}
+    const hardpointSignature=JSON.stringify(a.hardpoints),hardpointsChanged=this.lastHardpointSignature!==undefined&&hardpointSignature!==this.lastHardpointSignature;
+    if(hardpointsChanged||treadWidthChanged||[...current].some(key=>!this.visibleObstacleKeys.has(key))||arbPreview.points.length&&arbSignature!==this.lastArbSignature||this.lastAxle&&this.lastAxle!==context.activeAxle&&(current.size||arbPreview.points.length)){this.fitMode=true;this.zoom=1;}
+    this.lastHardpointSignature=hardpointSignature;
     this.lastTireTreadWidth=treadWidth;
     this.lastArbSignature=arbSignature;
     this.lastAxle=context.activeAxle;

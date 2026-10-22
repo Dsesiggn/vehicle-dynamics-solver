@@ -1,0 +1,52 @@
+name: Studio checks
+
+on:
+  push:
+    branches: [codex/hybrid-engineering-backend]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  studio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.5'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Python dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Python models, API, and JavaScript parity
+        env:
+          PYTHONPATH: backend
+        run: python -m unittest discover -s backend/tests -v
+      - name: Studio browser-module regression tests
+        run: node --test suspension-studio/tests/*.test.mjs
+      - name: Start the deployment entry point and check its HTTP surface
+        env:
+          APP_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          python run_hybrid.py --host 127.0.0.1 --port 8769 > /tmp/studio-server.log 2>&1 &
+          studio_pid=$!
+          trap 'kill "$studio_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8769/api/v1/health > /tmp/studio-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          python -c 'import json, os; health=json.load(open("/tmp/studio-health.json")); assert health["status"] == "ok"; assert health["source_commit"] == os.environ["APP_COMMIT_SHA"]'
+          curl --fail --silent --output /dev/null http://127.0.0.1:8769/suspension-studio/
+          curl --fail --silent --output /dev/null http://127.0.0.1:8769/suspension-studio/steering.html
+          curl --fail --silent --output /dev/null http://127.0.0.1:8769/suspension-studio/src/steering-viewer-3d.js

@@ -79,7 +79,7 @@ export class SteeringViewer {
     const {context:c,width:w,height:h}=canvasContext(this.canvas), color=colors();
     if(!this.ready||!this.design)return;
     const d=this.design,result=this.result?.ok?this.result:null;
-    const construction=steeringConstruction(d,result),neutral=steeringConstruction(d),intersection=construction.intersection;
+    const construction=this.result?.construction??steeringConstruction(d,result),neutral=steeringConstruction(d),intersection=construction.intersection;
     const centers={left:[0,-d.frontTrack/2,d.left.wheelCenterZ],right:[0,d.frontTrack/2,d.right.wheelCenterZ]};
     const rear={left:[-d.wheelbase,-d.rearTrack/2,0],right:[-d.wheelbase,d.rearTrack/2,0]};
     const boundsPoints=Object.keys(centers).flatMap(side=>[centers[side],d[side].axisUpper,d[side].axisLower,d[side].tieInner,d[side].tieOuter,...(result?[result[side].outer,result[side].inner,result[side].wheelCenter]:[])]).filter(finitePoint);

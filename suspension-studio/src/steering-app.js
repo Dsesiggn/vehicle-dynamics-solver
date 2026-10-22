@@ -1,7 +1,7 @@
-import {newSteeringDesign,exampleSteeringDesign,validateSteeringDesign,solveSteering,sweepSteering} from './steering.js';
+import {newSteeringDesign,exampleSteeringDesign,validateSteeringDesign} from './steering.js';
 import {SteeringViewer,SteeringChart} from './steering-viewer.js';
-import {steeringConstruction} from './steering-geometry.js';
 import {rackLongitudinalOffset,setRackLongitudinalOffset} from './steering-rack.js';
+import {createSteeringSweepLoader} from './steering-api.js';
 
 const $=id=>document.getElementById(id),STORAGE='suspension-studio.steering.v1';
 const sides=['left','right'],pointNames={axisUpper:'Upper steering-axis point',axisLower:'Lower steering-axis point',tieInner:'Rack / tie-rod inner joint',tieOuter:'Upright / tie-rod outer joint'};
@@ -9,9 +9,45 @@ const scalarNames={wheelCenterZ:'Nominal wheel center Z',staticToeDeg:'Static to
 const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const format=(value,digits=2)=>Number.isFinite(value)?value.toFixed(digits):'—';
 const signed=(value,digits=2)=>Number.isFinite(value)?`${value>0?'+':''}${value.toFixed(digits)}`:'—';
-let design=newSteeringDesign(),angle=0,rows=[],dirty=false,ready=false,storageReadable=true,exportUrl=null,currentConstruction=null,rackOffsetPending=false;
-const viewer=new SteeringViewer($('steering-scene')),chart=new SteeringChart($('steering-chart'));
+let design=newSteeringDesign(),angle=0,rows=[],dirty=false,ready=false,storageReadable=true,exportUrl=null,currentConstruction=null,rackOffsetPending=false,eligible=false,engineState='idle',engineError=null;
+const planViewer=new SteeringViewer($('steering-plan-scene')),chart=new SteeringChart($('steering-chart'));
+let spatialViewer=null,viewer=planViewer,viewMode='plan';
+try{
+  const {SteeringViewer3D}=await import('./steering-viewer-3d.js');
+  spatialViewer=new SteeringViewer3D($('steering-scene'));
+  viewer=spatialViewer;viewMode='3d';viewer.frontOnly=true;
+  spatialViewer.onViewChange=name=>{$('steering-camera').value=name;syncViewDescription();};
+  spatialViewer.onUnavailable=message=>{
+    $('steering-viewer-notice').textContent=`3D rendering is unavailable: ${message} The labeled 2D construction view remains available; Python calculations are unchanged.`;
+    $('steering-viewer-notice').hidden=false;$('steering-mode-3d').disabled=true;setViewMode('plan');
+  };
+}catch(error){
+  $('steering-viewer-notice').textContent=`3D rendering could not start: ${error.message}. The labeled 2D construction view remains available; Python calculations are unchanged.`;
+  $('steering-viewer-notice').hidden=false;$('steering-mode-3d').disabled=true;
+}
 viewer.showArmLines=$('arm-lines-overlay').checked;viewer.showArmAngles=$('arm-angles-overlay').checked;viewer.fitIntersection=false;
+const sweepLoader=createSteeringSweepLoader({onState:receiveSweepState});
+
+function syncViewDescription(){
+  const spatial=viewMode==='3d';
+  $('steering-scene').hidden=!spatial;$('steering-plan-scene').hidden=spatial;
+  spatialViewer?.setVisible(spatial);
+  $('steering-mode-3d').setAttribute('aria-pressed',String(spatial));$('steering-mode-plan').setAttribute('aria-pressed',String(!spatial));
+  $('steering-camera-controls').hidden=!spatial;
+  $('steering-view-description').textContent=spatial?'3D hardpoints and wheel-plane orientation · SAE +X forward, +Y right, +Z down':'2D construction · orthographic X–Y joint projection · +X forward ↑ · +Y right →';
+  $('steering-interaction-help').hidden=!spatial;
+  $('arm-lines-label').textContent=spatial?'Plan arm projections':'Arm extensions';
+  $('arm-angles-label').textContent=spatial?'Angles α / β':'Plan angles α';
+  $('steering-graphic-note').textContent=spatial?'Solid linkage follows the actual XYZ joints. Effective arms connect each outer joint to its perpendicular steering-axis foot C. Dashed plan constructions lie on Z = 0. Wheel-plane rings and link thickness are symbolic; tire dimensions and physical arm shapes are not defined. Rear markers show the nominal axle datum, not rear-wheel height.':'Joint positions are projected from the same 3D solution. Plan arm lines join axis point K at outer-ball height to the outer joint. Arcs show α; wheel icons use heading only and do not show camber or tire shape.';
+  $('steering-view').setAttribute('aria-pressed',String(viewer.frontOnly));$('steering-view').textContent=viewer.frontOnly?'Show full vehicle':'Focus front linkage';
+}
+function setViewMode(mode){
+  if(mode==='3d'&&!spatialViewer)return;
+  const next=mode==='3d'?spatialViewer:planViewer;
+  if(next!==viewer)for(const key of ['frontOnly','showIdeal','showArmLines','showArmAngles','fitIntersection'])next[key]=viewer[key];
+  viewer=next;viewMode=mode;syncViewDescription();showPosition();
+  if(mode==='3d'){$('steering-camera').value=spatialViewer.viewName;spatialViewer.fit();}
+}
 
 function notify(message,error=false){$('steering-notice').textContent=message;$('steering-notice').classList.toggle('error',error);$('steering-notice').hidden=false;}
 function markDirty(){dirty=true;$('steering-save-state').textContent='Unsaved changes';}
@@ -75,9 +111,26 @@ function applyRackOffset(){
   resetRackOffsetDraft();markDirty();update();
   notify(candidate.mode==='set-both'?'Set both rack-joint X coordinates to the entered target. Y/Z values were retained; reference tie-rod lengths are recomputed from the joints.':'Applied the rack midpoint X. Both inner joints moved equally in X; longitudinal staggering and Y/Z were retained. Reference tie-rod lengths are recomputed from the joints.');
 }
+function renderEngineState(){
+  const messages={idle:'Python calculations start when geometry is complete.',loading:'Calculating the steering sweep with Python…',ready:`Python engine connected · ${rows.length} steering positions.`,error:engineError?.message||'The Python engine is unavailable.'};
+  $('steering-engine-status').textContent=messages[engineState];
+  $('steering-engine').dataset.state=engineState;
+  $('retry-steering').hidden=engineState!=='error';$('retry-steering').disabled=!eligible||engineState==='loading';
+  if(engineState==='error')$('steering-engine-help').open=true;
+  const empty=$('steering-preview-empty');empty.hidden=ready;
+  empty.querySelector('strong').textContent=engineState==='loading'?'Calculating steering…':engineState==='error'?'Calculated geometry unavailable.':'Start with your geometry.';
+  empty.querySelector('span').textContent=engineState==='loading'?'Previous calculated results are cleared while the Python engine evaluates this layout.':engineState==='error'?'Your draft is retained. Follow the calculation-engine message, then select Retry calculation.':'Unknown values stay blank. Enter the dimensions and joint centers, or inspect the labeled synthetic example.';
+}
+function receiveSweepState(state){
+  engineState=state.status;engineError=state.error||null;rows=state.status==='ready'?state.rows:[];ready=state.status==='ready';
+  $('steering-angle').disabled=!ready;$('center-steering').disabled=!ready;
+  if(engineState==='loading'){$('steering-status').classList.remove('error');$('steering-status').textContent='Waiting for the Python steering sweep. Previous calculated positions have been cleared.';}
+  if(engineState==='error'){$('steering-status').classList.add('error');$('steering-status').textContent=engineError?.message||'The Python engine could not calculate this geometry. No calculated results are retained.';}
+  renderEngineState();renderTable();showPosition();syncPersistenceControls();
+}
 function renderReadouts(result){
   const m=result?.ok?result.metrics:null;
-  const values=[['Left heading',result?.ok?result.left.headingDeg:null,'°'],['Right heading',result?.ok?result.right.headingDeg:null,'°'],['Rack displacement',result?.ok?result.rack:null,'mm'],['Total toe-in',m?.totalToeInDeg,'°'],['Δ total toe-in',m?.deltaTotalToeInDeg,'°'],['Outside angle error',m?.ackermannErrorDeg,'°']];
+  const values=[['Left heading',result?.ok?result.left.headingDeg:null,'°'],['Right heading',result?.ok?result.right.headingDeg:null,'°'],['Rack displacement',result?.ok?result.rack:null,'mm'],['Total toe-in',m?.totalToeInDeg,'°'],['Δ total toe-in',m?.deltaTotalToeInDeg,'°'],['Outside angle error',m?.ackermannErrorDeg,'°'],['Left camber',result?.ok?result.left.camberDeg:null,'°'],['Right camber',result?.ok?result.right.camberDeg:null,'°']];
   $('steering-readouts').innerHTML=values.map(([label,value,unit])=>`<dl class="steering-readout"><dt>${label}</dt><dd>${signed(value)} <small>${unit}</small></dd></dl>`).join('');
   $('turn-badge').textContent=m?m.turn==='straight'?'Straight ahead':m.turn==='mixed'?'Mixed headings':`${m.turn==='right'?'Right':'Left'} turn · ${m.insideSide} inside`:'Awaiting geometry';
 }
@@ -89,9 +142,9 @@ function syncIntersectionFit(){
   $('fit-arm-intersection').textContent=viewer.fitIntersection?'Reset intersection fit':'Fit intersection';
 }
 function renderConstruction(result){
-  currentConstruction=ready?steeringConstruction(design,result):null;
+  currentConstruction=ready?result?.construction:null;
   const construction=currentConstruction,intersection=construction?.intersection;
-  let intersectionMarkup='<p class="steering-construction-unavailable">Complete the geometry to evaluate arm lines.</p>';
+  let intersectionMarkup=`<p class="steering-construction-unavailable">${eligible?'Waiting for a valid Python construction result.':'Complete the geometry to evaluate arm lines.'}</p>`;
   if(intersection?.status==='finite'&&intersection.point){
     const [x,y]=intersection.point,offset=intersection.rearAxleOffsetMm;
     const offsetText=Number.isFinite(offset)?Math.abs(offset)<.005?'0.00 mm from rear axle at shown precision':`${signed(offset)} mm · ${offset>0?'ahead of':'behind'} rear axle`:'Rear-axle offset unavailable';
@@ -100,54 +153,52 @@ function renderConstruction(result){
     const descriptions={parallel:'Parallel arm lines · no finite intersection.',coincident:'Coincident arm lines · no unique intersection.',undefined:'Arm-line intersection unavailable for this geometry.'};
     intersectionMarkup=`<p class="steering-construction-unavailable">${descriptions[intersection.status]||descriptions.undefined}</p>`;
   }
-  const state=!ready?'Awaiting complete geometry':construction?.pose==='solved'?'Selected solved position':'Static reference only · selected position unavailable';
+  const state=!ready?(eligible?engineState==='loading'?'Waiting for Python sweep':'Python construction unavailable':'Awaiting complete geometry'):construction?.pose==='solved'?'Selected solved position':'Static reference only · selected position unavailable';
   $('steering-construction').innerHTML=`<div class="steering-construction-heading"><h3>Steering-arm construction</h3><span class="steering-construction-state${ready&&!result?.ok?' unavailable':''}">${state}</span></div><div class="steering-construction-grid">${sides.map(side=>`<section class="steering-construction-card ${side}"><h4>${side==='left'?'Left':'Right'} rod / arm</h4><dl class="steering-construction-angles"><div><dt>α plan</dt><dd>${format(construction?.[side]?.planAngleDeg)}<small>°</small></dd></div><div><dt>β effective 3D</dt><dd>${format(construction?.[side]?.spatialAngleDeg)}<small>°</small></dd></div></dl></section>`).join('')}<section class="steering-construction-card intersection"><h4>Arm-line intersection · front datum</h4>${intersectionMarkup}</section></div><details class="steering-construction-definitions"><summary>Angle definitions & intersection meaning</summary><p>Both included angles are measured at the outer tie-rod joint toward the inner rod joint. For α, the other ray points to steering-axis point K at the outer joint’s height, and both rays are projected into the X–Y plane. For β, the other ray points to the perpendicular foot C on the steering axis, using the full 3D vectors. These are different arm references, not simply two views of one angle.</p><p>The plan arm extensions pass through K and the outer joint. Their intersection is a geometric construction point, not the vehicle’s rolling turn center. Rear-axle offset is X<sub>intersection</sub> + wheelbase: positive ahead of the rear axle, negative behind. Coordinates and offset use millimeters in the front-axle datum. Undefined values remain blank.</p></details>`;
   syncIntersectionFit();
 }
 function renderTable(){
-  if(!rows.length){$('steering-sweep').innerHTML='<tr><td colspan="12" class="steering-no-data">No calculated sweep. Complete the required geometry and correct any invalid values.</td></tr>';$('sweep-summary').textContent='Enter complete geometry to calculate every 5° steering-wheel increment.';return;}
+  if(!rows.length){const message=engineState==='loading'?'Waiting for the Python sweep. Previous results have been cleared.':engineState==='error'?'No calculated sweep. Reconnect the Python engine and retry.':'No calculated sweep. Complete the required geometry and correct any invalid values.';$('steering-sweep').innerHTML=`<tr><td colspan="12" class="steering-no-data">${message}</td></tr>`;$('sweep-summary').textContent=engineState==='loading'?'Calculating every 5° steering-wheel increment with Python.':engineState==='error'?'The Python engine has not returned a valid sweep.':'Enter complete geometry to calculate every 5° steering-wheel increment.';return;}
   const failures=rows.filter(row=>!row.ok).length;
   $('sweep-summary').textContent=`${rows.length} positions · ${-design.steeringLimitDeg}° to +${design.steeringLimitDeg}° · 5° steering-wheel steps${failures?` · ${failures} unavailable position${failures===1?'':'s'}`:''}. Select a row to inspect it.`;
   $('steering-sweep').innerHTML=rows.map(row=>{
     const input=row.steeringWheelDeg,selected=input===angle?' selected':'';
     if(!row.ok)return `<tr class="failed${selected}" data-angle="${input}" tabindex="0" aria-label="Inspect unavailable ${input} degree input"><td>${signed(input,0)}°</td><td>${format(row.rack)}</td><td colspan="10" class="steering-no-data">${escape(row.reason||'No assembly solution.')}</td></tr>`;
-    const m=row.metrics,construction=steeringConstruction(design,row);
+    const m=row.metrics,construction=row.construction;
     return `<tr class="${selected.trim()}" data-angle="${input}" tabindex="0" aria-label="Inspect ${input} degree steering wheel input"><td>${signed(input,0)}°</td><td>${signed(row.rack)}</td><td>${signed(row.left.headingDeg)}</td><td>${signed(row.right.headingDeg)}</td><td>${format(construction.left.planAngleDeg)} / ${format(construction.left.spatialAngleDeg)}</td><td>${format(construction.right.planAngleDeg)} / ${format(construction.right.spatialAngleDeg)}</td><td>${format(m.insideDeg)} / ${format(m.outsideDeg)}</td><td>${signed(m.totalToeInDeg)}</td><td>${signed(m.deltaTotalToeInDeg)}</td><td>${format(m.idealOutsideDeg)}</td><td>${signed(m.ackermannErrorDeg)}</td><td>${format(m.ackermannPercent,1)}</td></tr>`;
   }).join('');
 }
 function showPosition(){
   $('steering-angle').value=angle;$('steering-angle-value').textContent=`${signed(angle,0)}°`;
   if(!ready){renderReadouts(null);renderConstruction(null);viewer.update(design,null,false);chart.update([],angle);return;}
-  const result=rows.find(row=>row.steeringWheelDeg===angle)||solveSteering(design,angle);
+  const result=rows.find(row=>row.steeringWheelDeg===angle);
+  if(!result){receiveSweepState({status:'error',error:new Error('The selected position is missing from the Python sweep. Retry the calculation.')});return;}
   renderConstruction(result);viewer.update(design,result,true);chart.update(rows,angle);renderReadouts(result);
   $('steering-status').classList.toggle('error',!result.ok);
   if(!result.ok)$('steering-status').textContent=`This position is unavailable: ${result.reason||'The linkage did not produce a valid assembly solution.'} The preview shows entered static geometry only.`;
   else {
     const residual=Math.max(Math.abs(result.left.residual),Math.abs(result.right.residual));
     const m=result.metrics,comparison=Number.isFinite(m.idealOutsideDeg)?`Inside ${format(m.insideDeg)}° · outside ${format(m.outsideDeg)}° · nominal ideal outside ${format(m.idealOutsideDeg)}°.`:'Nominal Ackermann comparison is undefined at this position.';
-    $('steering-status').textContent=`Rigid-link position solved. ${comparison} Maximum tie-rod length residual ${Number.isFinite(residual)?residual.toExponential(2):'unavailable'} mm. Numerical closure is not physical validation.`;
+    $('steering-status').textContent=`Rigid-link position solved by Python. ${comparison} Maximum tie-rod length residual ${Number.isFinite(residual)?residual.toExponential(2):'unavailable'} mm. Numerical closure is not physical validation.`;
   }
   for(const row of $('steering-sweep').querySelectorAll('[data-angle]'))row.classList.toggle('selected',+row.dataset.angle===angle);
 }
 function update(){
   const inputErrors=editorErrors();let errors;
   try{errors=[...inputErrors,...validateSteeringDesign(design)];}catch(error){errors=[`Invalid geometry data: ${error.message}`];}
-  ready=errors.length===0;
-  $('steering-angle').disabled=!ready;$('center-steering').disabled=!ready;
-  $('steering-preview-empty').hidden=ready;
-  if(ready){
+  eligible=errors.length===0;
+  if(eligible){
     const limit=design.steeringLimitDeg;$('steering-angle').min=-limit;$('steering-angle').max=limit;
     angle=Math.max(-limit,Math.min(limit,angle));$('steering-min-label').textContent=`−${limit}°`;$('steering-max-label').textContent=`+${limit}°`;
-    try{rows=sweepSteering(design);}catch(error){rows=[];ready=false;errors=[`Could not calculate this geometry: ${error.message}`];}
-  }else{rows=[];$('steering-min-label').textContent='− limit';$('steering-max-label').textContent='+ limit';}
-  if(!ready){
-    rows=[];$('steering-angle').disabled=true;$('center-steering').disabled=true;$('steering-preview-empty').hidden=false;
+    void sweepLoader.load(design);
+  }else{
+    sweepLoader.cancel();$('steering-min-label').textContent='− limit';$('steering-max-label').textContent='+ limit';
     const missing=errors.length;
     $('steering-status').classList.toggle('error',inputErrors.length>0);
     $('steering-status').innerHTML=`${missing} input ${missing===1?'item needs':'items need'} attention before calculating. Unknown values are never replaced with zero.<details><summary>Review required inputs</summary><ul>${errors.map(error=>`<li>${escape(error)}</li>`).join('')}</ul></details>`;
   }
+  $('export-ready').hidden=true;
   syncRackOffset();syncPersistenceControls(inputErrors);
-  renderTable();showPosition();
 }
 function download(content,type,filename){
   if(exportUrl)URL.revokeObjectURL(exportUrl);
@@ -163,7 +214,7 @@ function download(content,type,filename){
 function basename(){return (design.name||'steering-design').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-|-$/g,'').slice(0,70)||'steering-design';}
 function exportCsv(){
   const headings=['steering_wheel_deg','rack_mm','status','reason','left_heading_deg','right_heading_deg','left_rod_arm_plan_angle_deg','left_rod_arm_effective_3d_angle_deg','right_rod_arm_plan_angle_deg','right_rod_arm_effective_3d_angle_deg','left_toe_in_deg','right_toe_in_deg','left_delta_toe_in_deg','right_delta_toe_in_deg','inside_side','inside_deg','outside_deg','total_toe_in_deg','delta_total_toe_in_deg','nominal_ideal_outside_deg','outside_error_deg','ackermann_percent','cot_residual','left_camber_deg','right_camber_deg','left_tie_residual_mm','right_tie_residual_mm','arm_line_intersection_status','arm_line_intersection_x_mm','arm_line_intersection_y_mm','arm_line_intersection_rear_offset_mm'];
-  const data=rows.map(r=>{const m=r.metrics||{},l=r.left||{},right=r.right||{},construction=r.ok?steeringConstruction(design,r):null,intersection=construction?.intersection;return[r.steeringWheelDeg,r.rack,r.ok?'solved':'unavailable',r.reason||'',l.headingDeg,right.headingDeg,construction?.left.planAngleDeg,construction?.left.spatialAngleDeg,construction?.right.planAngleDeg,construction?.right.spatialAngleDeg,l.toeInDeg,right.toeInDeg,l.deltaToeInDeg,right.deltaToeInDeg,m.insideSide,m.insideDeg,m.outsideDeg,m.totalToeInDeg,m.deltaTotalToeInDeg,m.idealOutsideDeg,m.ackermannErrorDeg,m.ackermannPercent,m.cotResidual,l.camberDeg,right.camberDeg,l.residual,right.residual,intersection?.status,intersection?.point?.[0],intersection?.point?.[1],intersection?.rearAxleOffsetMm];});
+  const data=rows.map(r=>{const m=r.metrics||{},l=r.left||{},right=r.right||{},construction=r.ok?r.construction:null,intersection=construction?.intersection;return[r.steeringWheelDeg,r.rack,r.ok?'solved':'unavailable',r.reason||'',l.headingDeg,right.headingDeg,construction?.left.planAngleDeg,construction?.left.spatialAngleDeg,construction?.right.planAngleDeg,construction?.right.spatialAngleDeg,l.toeInDeg,right.toeInDeg,l.deltaToeInDeg,right.deltaToeInDeg,m.insideSide,m.insideDeg,m.outsideDeg,m.totalToeInDeg,m.deltaTotalToeInDeg,m.idealOutsideDeg,m.ackermannErrorDeg,m.ackermannPercent,m.cotResidual,l.camberDeg,right.camberDeg,l.residual,right.residual,intersection?.status,intersection?.point?.[0],intersection?.point?.[1],intersection?.rearAxleOffsetMm];});
   const cell=value=>value==null||typeof value==='number'&&!Number.isFinite(value)?'':`"${String(value).replaceAll('"','""')}"`;
   download([headings,...data].map(row=>row.map(cell).join(',')).join('\r\n'),'text/csv;charset=utf-8',`${basename()}-sweep.csv`);
 }
@@ -173,7 +224,7 @@ try {
   const saved=localStorage.getItem(STORAGE);
   if(saved){const parsed=JSON.parse(saved),errors=validateSteeringDesign(parsed,{allowIncomplete:true});if(errors.length){storageReadable=false;notify('The saved steering draft could not be opened. It has been retained and Save is disabled. Export JSON to keep new work.',true);}else{design=parsed;$('steering-save-state').textContent='Saved draft restored';notify('Restored the steering draft saved in this browser.');}}
 }catch{storageReadable=false;notify('Browser storage could not be read. Export JSON to keep your work; the stored draft will not be overwritten.',true);}
-populate();update();
+syncViewDescription();populate();update();
 
 $('steering-workspace').addEventListener('input',event=>{
   const input=event.target;
@@ -189,8 +240,13 @@ $('rack-offset').addEventListener('keydown',event=>{if(event.key==='Enter'){even
 $('apply-rack-offset').addEventListener('click',applyRackOffset);
 $('reset-rack-offset').addEventListener('click',()=>{resetRackOffsetDraft();syncPersistenceControls();});
 $('steering-angle').addEventListener('input',event=>{angle=+event.target.value;showPosition();});
+$('retry-steering').addEventListener('click',()=>{if(eligible)update();});
 $('center-steering').addEventListener('click',()=>{angle=0;showPosition();});
 $('ideal-overlay').addEventListener('change',event=>{viewer.showIdeal=event.target.checked;viewer.draw();});
+$('steering-mode-3d').addEventListener('click',()=>setViewMode('3d'));
+$('steering-mode-plan').addEventListener('click',()=>setViewMode('plan'));
+$('steering-camera').addEventListener('change',event=>{if(spatialViewer&&event.target.value!=='orbit')spatialViewer.setView(event.target.value);});
+$('fit-steering-view').addEventListener('click',()=>spatialViewer?.fit());
 $('steering-view').addEventListener('click',()=>{viewer.frontOnly=!viewer.frontOnly;viewer.fitIntersection=false;syncIntersectionFit();$('steering-view').setAttribute('aria-pressed',String(viewer.frontOnly));$('steering-view').textContent=viewer.frontOnly?'Show full vehicle':'Focus front linkage';viewer.draw();});
 $('arm-lines-overlay').addEventListener('change',event=>{viewer.showArmLines=event.target.checked;syncIntersectionFit();viewer.draw();});
 $('arm-angles-overlay').addEventListener('change',event=>{viewer.showArmAngles=event.target.checked;viewer.draw();});
