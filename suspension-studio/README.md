@@ -43,6 +43,14 @@ Saved libraries belong to the browser and web origin. The hosted app and a local
 7. Optionally enter engine, differential, and cockpit packaging envelopes. Check **Show in preview** to draw a translucent static shape; complete visible shapes also enter the heave clearance check. Use **Fit all** to frame the suspension and visible envelopes.
 8. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Suspension calculations remain in the browser; steering designs are sent to the same-origin Python service for calculation and are not stored there.
 
+## Hardpoint editing and live preview
+
+**Define hardpoints** places the coordinate table beside the live preview on desktop. Use **Front hardpoints** and **Rear hardpoints** to select the axle, and **Configure vehicle** to return to dimensions and topology. Accepted coordinate changes update and reframe the preview immediately. Coordinates are not rounded to two decimal places by the editor.
+
+Incomplete or invalid entries remain editable. A persistent message explains why they have not been applied, and the preview displays the last accepted static geometry. Saving, exporting and solving stay disabled while either axle has unaccepted edits. Correct the entries or use **Discard unaccepted edits** to restore the accepted coordinates. Pending edits are not saved in the design library.
+
+This is an input-validation and rendering change, not a new kinematic model. The existing symmetric-left-corner convention is unchanged: editing wheel-center Y sets track to `−2Y`, and editing rack-inner Y sets rack length to `−2Y`, in mm. Other coordinate edits preserve the existing widths. The editor evaluates all pending coordinate changes together against the existing design validation before replacing the accepted axle; blanks never become zero. See [the coordinate contract](docs/COORDINATES.md).
+
 ## Appearance
 
 Use the **Dark mode** switch in the top bar to change the full workspace, including the 3D viewer. The switch supports keyboard activation and exposes its state to assistive technology. The app starts in light mode and remembers your explicit choice in this browser on this site. Theme preferences are separate from saved vehicle designs. If browser storage is unavailable, switching still works for the current page.

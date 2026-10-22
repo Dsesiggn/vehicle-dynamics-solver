@@ -1,12 +1,14 @@
 import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.8';
 import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel,TIRE_TREAD_WIDTH_MAX} from './model.js?v=0.2.8';
 import {solveAxle} from './solver.js?v=0.2.8';
-import {SuspensionViewer} from './viewer.js?v=0.2.8';
+import {SuspensionViewer} from './viewer.js?v=0.2.10';
+import {evaluateHardpointEdits} from './hardpoint-edits.js?v=0.2.10';
 import {ARB_POINTS,newAntiRollBar,arbComplete,arbPreviewGeometry} from './arb.js?v=0.2.7';
 import {OBSTACLE_TYPES,newObstacles,obstacleComplete} from './obstacles.js?v=0.2.5';
 import {evaluateHeavePosition,scanHeaveTravel} from './interference.js?v=0.2.8';
 const $=id=>document.getElementById(id);
 let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,heavePosition=0,heavePreviewActive=false,lastHeaveScan=null,toastTimer,dirty=false;
+let hardpointDrafts={},hardpointMessages={};
 try {
   const library=readLibrary(localStorage);saved=library.saved;rejected=library.rejected;
   if(library.migrated)libraryNotice=`Converted ${library.migrated} saved design(s) to SAE J670 Z-down. Original v1 storage is retained.`;
@@ -37,6 +39,7 @@ function fields() {
   $('bump').min=-design.heaveTravel.rebound;$('bump').max=design.heaveTravel.compression;$('bump').step=.1;$('bump').value=bump;
   $('steer').min=-a.rackTravel/2;$('steer').max=a.rackTravel/2;$('steer').step=.5;$('steer').disabled=!a.steered;
   renderARB();renderObstacles();
+  if(!$('hardpoints-panel').hidden)renderHardpoints();else $('hardpoint-rows').replaceChildren();
 }
 function renderARB() {
   const arb=design.axles[active].antiRollBar,enabled=arb?.enabled===true;
@@ -52,9 +55,9 @@ function renderObstacles() {
     return `<fieldset class="obstacle-card"><legend>${label}</legend><div class="obstacle-card-heading"><label class="switch-label"><input type="checkbox" data-obstacle-visible="${key}" ${obstacle.visible?'checked':''} aria-label="Show ${label.toLowerCase()} in preview"> Show in preview</label></div><label class="field obstacle-reference">Coordinate reference axle<select data-obstacle-reference="${key}" aria-label="${label} coordinate reference axle"><option value="front" ${obstacle.referenceAxle==='front'?'selected':''}>Front axle datum</option><option value="rear" ${obstacle.referenceAxle==='rear'?'selected':''}>Rear axle datum</option></select></label><div class="obstacle-subheading">CENTER · SAE J670 Z-DOWN</div><div class="obstacle-coordinates">${centerFields}</div><div class="obstacle-subheading">DIMENSIONS</div><div class="obstacle-dimensions">${dimensionFields}</div><p class="hint obstacle-status" id="obstacle-${key}-status" role="status"></p></fieldset>`;
   }).join('');
 }
-function renderHeaveStatus(errors, current, invalidInputLabel='') {
+function renderHeaveStatus(errors, current, inputIssue='') {
   const target=$('heave-check-results'),linkOD=design.interference?.linkOD;
-  if(invalidInputLabel) {target.innerHTML=`<p class="solver-status error">Enter a valid number for ${escape(invalidInputLabel)} before checking interference. Previous travel-scan results have been cleared.</p>`;return;}
+  if(inputIssue) {target.innerHTML=`<p class="solver-status error">${escape(inputIssue)} Previous travel-scan results have been cleared.</p>`;return;}
   if(errors.length) {target.innerHTML='<p class="hint">Correct the design validation errors before running the interference check.</p>';return;}
   if(!Number.isFinite(linkOD)||linkOD<=0) {target.innerHTML='<p class="hint">Enter the shared suspension-link OD to check links and dampers.</p>';return;}
   let html=`<p class="hint heave-current" role="status">`;
@@ -79,8 +82,14 @@ function renderHeaveStatus(errors, current, invalidInputLabel='') {
 }
 function update() {
   const a=design.axles[active],errors=validateDesign(design);
+  const pendingAxles=Object.keys(hardpointDrafts);
+  const pendingIssues=pendingAxles.map(axle=>{
+    const evaluation=evaluateHardpointEdits(design,axle,hardpointDrafts[axle]);
+    return `${title(axle)} hardpoint edits not applied: ${evaluation.errors.join(' ')||'Finish the entry in the hardpoint editor or discard the unaccepted edits.'}`;
+  });
   const invalidInput=[...document.querySelectorAll('input[type=number]')].find(input=>!input.disabled&&(!(input.dataset.arbPoint||input.dataset.obstacleField||input.dataset.linkOd||input.dataset.tireWidth)&&input.value===''||!input.checkValidity()));
-  const invalidField=!!invalidInput,invalidInputLabel=invalidInput?(invalidInput.getAttribute('aria-label')||title(invalidInput.id||'numeric input')):'';
+  const invalidField=!!invalidInput||pendingAxles.length>0,invalidInputLabel=invalidInput?(invalidInput.getAttribute('aria-label')||title(invalidInput.id||'numeric input')):'';
+  const inputIssue=pendingIssues.length?pendingIssues.join(' '):invalidInput?`Enter a valid number for ${invalidInputLabel} before solving motion.`:'';
   if(invalidField)lastHeaveScan=null;
   const kinematicResult=errors.length||invalidField?null:solveAxle(a,bump,rack);
   const linkOD=design.interference?.linkOD;
@@ -92,6 +101,11 @@ function update() {
   $('run-heave-check').disabled=errors.length>0||invalidField||!Number.isFinite(linkOD)||linkOD<=0;
   $('fit-all').setAttribute('aria-pressed',String(viewer.fitMode));if(viewer.fitMode)document.querySelectorAll('[data-view]').forEach(button=>button.setAttribute('aria-pressed','false'));
   $('viewer-axle').textContent=`${active.toUpperCase()} AXLE`;$('viewer-topology').textContent=TOPOLOGIES[a.topology].name;$('viewer-detail').textContent=invalidField?'Invalid input · Last accepted static geometry':`${title(a.actuation)} · ${title(a.mounting)}`;
+  $('preview-input-status').hidden=!invalidField;
+  $('preview-input-status').textContent=inputIssue?`${inputIssue} The preview retains the last accepted coordinates.`:'';
+  $('hardpoint-status').classList.toggle('error',invalidField);
+  $('hardpoint-status').textContent=inputIssue||hardpointMessages[active]||'Enter coordinates to update the live preview. Incomplete or invalid entries stay editable until corrected.';
+  $('discard-hardpoint-edits').hidden=!hardpointDrafts[active];
   $('stat-track').innerHTML=`${a.track.toLocaleString(undefined,{maximumFractionDigits:1})} <span>mm</span>`;
   $('stat-points').textContent=Object.keys(a.hardpoints).length;$('stat-solver').textContent=TOPOLOGIES[a.topology].solver;
   $('tire-viewer-note').textContent=a.tireTreadWidth>0?`${a.tireTreadWidth} mm tread width · Ideal circular tread band. Tire section width and sidewall profile are not defined.`:'Tread width unentered · Showing the outer-diameter circle only; no tread width is assumed.';
@@ -115,25 +129,31 @@ function update() {
   $('obstacle-viewer-note').textContent='Packaging envelopes use SAE J670 Z-down millimeters and remain static during suspension motion. Complete envelopes with “Show in preview” enabled are included in the heave interference check.';
   $('axle-summary').innerHTML=Object.entries(design.axles).map(([name,axle])=>`<div class="summary-row"><span class="axle-icon">${name==='front'?'F':'R'}</span><div><strong>${title(name)} axle · ${TOPOLOGIES[axle.topology].name}</strong><small>${title(axle.actuation)} / ${title(axle.mounting)} · ${axle.steered?'Steered':'Fixed toe links'}</small></div><span>${Number(axle.track.toFixed(1))} mm</span></div>`).join('');
   $('bump-value').textContent=`${bump} mm`;$('steer-value').textContent=`${rack} mm`;$('heave-position-value').textContent=`${heavePosition.toFixed(1)} mm`;
-  if(invalidField) $('solver-results').innerHTML=`<p class="solver-status error">Enter a valid number for ${escape(invalidInputLabel)} before solving motion. The preview shows static geometry from the last accepted values.</p>`;
+  if(invalidField) $('solver-results').innerHTML=`<p class="solver-status error">${escape(inputIssue)} The preview shows static geometry from the last accepted values.</p>`;
   else if(errors.length) $('solver-results').innerHTML=`<p class="solver-status error">${errors.map(escape).join('<br>')}</p>`;
   else if(!result.ok) $('solver-results').innerHTML=`<p class="solver-status error">${escape(result.left?.reason||result.right?.reason||'No nearby assembly solution.')} Showing static geometry.</p>`;
   else $('solver-results').innerHTML=`<div class="solver-metrics"><span>Left Δ camber <strong>${result.left.camber.toFixed(2)}°</strong></span><span>Left Δ toe-in <strong>${result.left.toe.toFixed(2)}°</strong></span><span>Right Δ toe-in <strong>${result.right.toe.toFixed(2)}°</strong></span><span>Left / right steer <strong>${result.left.steer.toFixed(2)}° / ${result.right.steer.toFixed(2)}°</strong></span><span>Left damper compression <strong>${result.left.compression.toFixed(2)} mm</strong></span></div><p class="solver-status">● Position solved · maximum constraint residual ${Math.max(result.left.error,result.right.error).toFixed(5)} mm</p>`;
-  renderHeaveStatus(errors,heaveCurrent,invalidInputLabel);
+  renderHeaveStatus(errors,heaveCurrent,inputIssue);
   $('save').disabled=!storageReadable||errors.length>0||invalidField;$('export').disabled=errors.length>0||invalidField;
   if(!$('hardpoints-panel').hidden && !document.activeElement?.dataset.point) renderHardpoints();
 }
 function renderHardpoints() {
   $('hardpoint-axle').textContent=`/ ${title(active)} axle`;
-  $('hardpoint-rows').innerHTML=Object.entries(design.axles[active].hardpoints).map(([key,xyz])=>`<tr><td>${hardpointLabel(key)}</td>${xyz.map((n,i)=>`<td><input type="number" step="0.01" min="-10000" max="10000" value="${Number(n.toFixed(2))}" data-point="${key}" data-axis="${i}" aria-label="${hardpointLabel(key)} ${'XYZ'[i]}"></td>`).join('')}<td>${isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
+  $('hardpoint-rows').innerHTML=Object.entries(design.axles[active].hardpoints).map(([key,xyz])=>`<tr><td>${hardpointLabel(key)}</td>${xyz.map((n,i)=>`<td><input type="number" step="any" min="-10000" max="10000" value="${escape(hardpointDrafts[active]?.[key]?.[i]??String(n))}" data-point="${key}" data-axis="${i}" aria-label="${hardpointLabel(key)} ${'XYZ'[i]}"></td>`).join('')}<td>${isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
 }
 function reveal(panel) {
-  $(panel).hidden=false;if(panel==='hardpoints-panel')renderHardpoints();$(panel).scrollIntoView({behavior:'smooth',block:'start'});
+  $(panel).hidden=false;
+  if(panel==='hardpoints-panel') {
+    document.querySelector('.workspace-grid').classList.add('editing-hardpoints');
+    $('configure-step').classList.remove('current');$('hardpoints-step').classList.add('current');
+    renderHardpoints();viewer.fitAll();update();
+    document.querySelector('.workspace-grid').scrollIntoView({behavior:'smooth',block:'start'});
+  } else $(panel).scrollIntoView({behavior:'smooth',block:'start'});
 }
 function geometryChange(change) {
   const a=design.axles[active], customized=JSON.stringify(a.hardpoints)!==JSON.stringify(generatePoints(a,design.wheelDiameter));
-  if(customized&&!confirm('Changing topology or actuation replaces this axle’s current hardpoints with generated geometry. Continue?')) {fields();return;}
-  change(a);normalizeAxle(a);a.hardpoints=generatePoints(a,design.wheelDiameter);resetMotion();markDirty();fields();update();
+  if((customized||hardpointDrafts[active])&&!confirm('Changing topology or actuation replaces this axle’s current hardpoints and unaccepted edits with generated geometry. Continue?')) {fields();return;}
+  change(a);normalizeAxle(a);a.hardpoints=generatePoints(a,design.wheelDiameter);delete hardpointDrafts[active];delete hardpointMessages[active];resetMotion();markDirty();fields();update();
 }
 for(const button of document.querySelectorAll('[data-axle]'))button.addEventListener('click',()=>{active=button.dataset.axle;lastHeaveScan=null;resetMotion();fields();update();});
 for(const button of document.querySelectorAll('[data-topology]'))button.addEventListener('click',()=>{if(button.dataset.topology!==design.axles[active].topology)geometryChange(a=>a.topology=button.dataset.topology);});
@@ -144,7 +164,7 @@ for(const [id,key] of Object.entries({'track':'track','rack-length':'rackLength'
   const input=$(id);if(!validInput(input))return;
   const a=design.axles[active],backup=clone(a);changeDimensions(a,key,Number(input.value));
   const errors=validateDesign(design);if(errors.length){design.axles[active]=backup;fields();update();toast(errors[0]);return;}
-  resetMotion();markDirty();update();
+  delete hardpointMessages[active];resetMotion();markDirty();update();
   if(key==='track')$('rack-length').value=Number(a.rackLength.toFixed(3));
 });
 $('steered').addEventListener('change',()=>{design.axles[active].steered=$('steered').checked;resetMotion();markDirty();fields();update();});
@@ -192,19 +212,29 @@ $('wheel-diameter').addEventListener('input',()=>{
   for(const a of Object.values(design.axles))for(const p of Object.values(a.hardpoints))p[2]-=dz;
   for(const a of Object.values(design.axles))if(a.antiRollBar)for(const p of Object.values(a.antiRollBar.points))if(p[2]!==null)p[2]-=dz;
   if(design.obstacles)for(const obstacle of Object.values(design.obstacles))if(obstacle.center[2]!==null)obstacle.center[2]-=dz;
-  design.wheelDiameter=diameter;resetMotion();markDirty();renderARB();renderObstacles();update();
+  design.wheelDiameter=diameter;hardpointMessages={};resetMotion();markDirty();renderARB();renderObstacles();update();
 });
 $('hardpoint-rows').addEventListener('input',e=>{
-  const input=e.target;if(!input.dataset.point||!validInput(input))return;
-  const a=design.axles[active],backup=clone(a),key=input.dataset.point,axis=Number(input.dataset.axis);
-  a.hardpoints[key][axis]=Number(input.value);
-  if(key==='wheel_center'&&axis===1)a.track=-Number(input.value)*2;
-  if(key==='tie_rod_inner'&&axis===1)a.rackLength=-Number(input.value)*2;
-  const errors=validateDesign(design);if(errors.length){design.axles[active]=backup;renderHardpoints();update();toast(errors[0]);return;}
-  resetMotion();markDirty();update();
-  $('track').value=a.track;$('rack-length').value=Number(a.rackLength.toFixed(3));
+  const input=e.target;if(!input.dataset.point)return;
+  const key=input.dataset.point,axis=Number(input.dataset.axis);
+  const edits=hardpointDrafts[active]??={};(edits[key]??={})[axis]=input.value;
+  markDirty();
+  const evaluation=evaluateHardpointEdits(design,active,edits);
+  if(evaluation.errors.length||!input.checkValidity()){update();return;}
+  design.axles[active]=evaluation.axle;delete hardpointDrafts[active];
+  hardpointMessages[active]=`${hardpointLabel(key)} ${'XYZ'[axis]} = ${evaluation.axle.hardpoints[key][axis]} mm applied. Live preview updated.`;
+  $('track').value=evaluation.axle.track;$('rack-length').value=evaluation.axle.rackLength;
+  resetMotion();update();
 });
-$('regenerate').addEventListener('click',()=>{if(!confirm(`Replace ${active} axle hardpoints with generated defaults?`))return;const a=design.axles[active];a.hardpoints=generatePoints(a,design.wheelDiameter);resetMotion();markDirty();update();toast('Axle hardpoints regenerated.');});
+$('discard-hardpoint-edits').addEventListener('click',()=>{
+  delete hardpointDrafts[active];hardpointMessages[active]='Unaccepted edits discarded. Showing the last accepted coordinates.';renderHardpoints();update();
+});
+$('configure-step').addEventListener('click',()=>{
+  document.querySelector('.workspace-grid').classList.remove('editing-hardpoints');$('hardpoints-panel').hidden=true;$('hardpoint-rows').replaceChildren();
+  $('configure-step').classList.add('current');$('hardpoints-step').classList.remove('current');update();
+  document.querySelector('.workspace-grid').scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('regenerate').addEventListener('click',()=>{if(!confirm(`Replace ${active} axle hardpoints and unaccepted edits with generated defaults?`))return;const a=design.axles[active];a.hardpoints=generatePoints(a,design.wheelDiameter);delete hardpointDrafts[active];delete hardpointMessages[active];resetMotion();markDirty();update();toast('Axle hardpoints regenerated.');});
 for(const id of ['edit-hardpoints','hardpoints-step'])$(id).addEventListener('click',()=>reveal('hardpoints-panel'));
 $('kinematics-step').addEventListener('click',()=>reveal('kinematics-panel'));
 $('bump').addEventListener('input',()=>{bump=Number($('bump').value);heavePosition=Math.max(-design.heaveTravel.rebound,Math.min(design.heaveTravel.compression,bump));$('heave-position').value=heavePosition;heavePreviewActive=false;update();});
@@ -237,7 +267,7 @@ $('reset-view').addEventListener('click',()=>{viewer.view('iso');document.queryS
 $('show-labels').addEventListener('change',()=>{viewer.labels=$('show-labels').checked;viewer.draw();});
 function load(d) {
   let imported;try{imported=importDesign(d);}catch(error){$('library-error').textContent=error.message;return;}
-  design=imported.design;active='front';resetMotion();dirty=false;fields();update();$('save-state').textContent='Design loaded';$('library').close();toast(imported.migrated?`Converted ${design.name} to SAE J670 Z-down; save or export to keep v2.`:`Opened ${design.name}`);
+  design=imported.design;hardpointDrafts={};hardpointMessages={};active='front';resetMotion();dirty=false;fields();update();$('save-state').textContent='Design loaded';$('library').close();toast(imported.migrated?`Converted ${design.name} to SAE J670 Z-down; save or export to keep v2.`:`Opened ${design.name}`);
 }
 function showLibrary() {
   $('library-error').textContent=libraryNotice;
