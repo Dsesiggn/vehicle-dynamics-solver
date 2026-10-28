@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#692f50"><title>Suspension Studio · Vehicle Dynamics</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
   <script src="./src/theme.js?v=0.2.1"></script>
-  <link rel="stylesheet" href="./src/styles.css?v=0.2.10">
+  <link rel="stylesheet" href="./src/styles.css?v=0.2.11">
 </head>
 <body>
   <section id="startup-panel" class="startup-panel" role="status" aria-live="polite" aria-labelledby="startup-title">
@@ -44,7 +44,7 @@
       <div class="workspace-grid">
         <div class="configuration">
           <section id="hardpoints-panel" class="panel detail-panel" hidden aria-labelledby="hardpoint-heading">
-            <div class="section-title"><div><h2 id="hardpoint-heading">Hardpoint editor <span id="hardpoint-axle"></span></h2><p class="hint">SAE J670 Z-down · +X forward · +Y right · +Z down · mm. Left-side Y is negative; height above the static ground datum has negative Z. Each axle uses its own chassis-fixed origin at the static axle center projected onto the ground.</p></div><button id="regenerate" type="button" class="button subtle">Reset axle geometry</button></div>
+            <div class="section-title"><div><h2 id="hardpoint-heading">Hardpoint editor <span id="hardpoint-axle"></span></h2><p id="hardpoint-frame-note" class="hint">All XYZ inputs use the front-axle ground origin. SAE J670 Z-down · +X forward · +Y right · +Z down · mm.</p></div><button id="regenerate" type="button" class="button subtle">Reset axle geometry</button></div>
             <div class="segmented axle-tabs hardpoint-axle-tabs" role="tablist" aria-label="Edit axle hardpoints"><button role="tab" type="button" id="front-hardpoints-tab" aria-selected="true" data-axle="front">Front hardpoints</button><button role="tab" type="button" id="rear-hardpoints-tab" aria-selected="false" data-axle="rear">Rear hardpoints</button></div>
             <div class="hardpoint-feedback"><p id="hardpoint-status" class="hint" role="status" aria-live="polite"></p><button id="discard-hardpoint-edits" type="button" class="button subtle" hidden>Discard unaccepted edits</button></div>
             <div class="table-scroll"><table><thead><tr><th scope="col">Hardpoint</th><th scope="col">X · forward</th><th scope="col">Y · right</th><th scope="col">Z · down</th><th scope="col">Attachment</th></tr></thead><tbody id="hardpoint-rows"></tbody></table></div>
@@ -70,14 +70,14 @@
             <div class="subsection-heading">SPRING & DAMPER</div><div class="field-grid"><label class="field">Spring outer diameter<div class="number-wrap"><input id="spring-od" type="number" min="20" max="250" step="any"><span>mm</span></div></label><label class="field">Damper outer diameter<div class="number-wrap"><input id="damper-od" type="number" min="10" max="200" step="any"><span>mm</span></div></label></div>
             <div class="subsection-heading arb-heading">ANTI-ROLL BAR <label class="switch-label"><input id="arb-enabled" type="checkbox" aria-controls="arb-inputs" aria-expanded="false"> U-bar anti-roll bar</label></div>
             <div id="arb-inputs" hidden>
-              <p class="hint">Enter left-side points in mm: +X forward, +Y right, +Z down. The right side is mirrored across Y = 0. Bar bend, lever-arm tip, and suspension pickup are sufficient to draw the bar and drop links. The chassis bearing location is optional for this preview. Leave unknown coordinates blank; each complete XYZ point is shown as entered.</p>
+              <p class="hint">Enter left-side points in mm from the front-axle ground origin, including the rear ARB: +X forward, +Y right, +Z down. The rear axle datum is X = −wheelbase. The right side is mirrored across Y = 0. Bar bend, lever-arm tip, and suspension pickup are sufficient to draw the bar and drop links. The chassis bearing location is optional for this preview. Leave unknown coordinates blank.</p>
               <div id="arb-point-fields"></div>
               <p id="arb-status" class="hint" role="status"></p>
               <p class="hint">Static layout only. The suspension pickup is a reference point; ARB motion, stiffness, and forces are not calculated. Unchecking keeps your entered points.</p>
             </div>
           </section>
           <section class="panel obstacle-panel" aria-labelledby="obstacle-heading"><div class="section-title"><div><h2 id="obstacle-heading"><span>03</span> Obstacle geometry</h2><p class="hint">Optional engine, differential, and cockpit envelopes for the live preview.</p></div><span class="unit-badge">mm</span></div>
-            <p class="hint obstacle-intro">Use +X forward, +Y right, and +Z down. Enter centers relative to the selected axle datum. The engine and differential use boxes; the cockpit is a trapezoid in the Y–Z section extruded along X, with equal top and bottom widths for a rectangle. The other axle view shifts X by the wheelbase; Y and Z stay the same. Changing wheel diameter shifts entered center Z by −Δdiameter/2.</p>
+            <p class="hint obstacle-intro">Enter every center from the front-axle ground origin: +X forward, +Y right, +Z down. “Moves with wheelbase changes” chooses whether the envelope stays with the front or rear axle when wheelbase changes; changing that selection preserves its current position. Engine and differential use boxes; cockpit uses a Y–Z trapezoid extruded along X. Changing wheel diameter shifts center Z by −Δdiameter/2.</p>
             <div id="obstacle-fields"></div>
             <p class="hint obstacle-limit">These envelopes stay fixed during suspension travel. Complete shapes with “Show in preview” enabled are checked for link and damper clearance; they do not block hardpoint edits. Unchecking an envelope retains its values.</p>
           </section>
@@ -89,6 +89,7 @@
             <div class="legend"><span><i class="arm"></i> Control arms</span><span><i class="actuator"></i> Actuation</span><span><i class="steering"></i> Steering / toe link</span><span><i class="point"></i> Hardpoints</span><span id="interference-legend" hidden><i class="interference"></i> Current heave interference</span><span id="arb-legend" hidden><i class="arb"></i> U-bar ARB (static)</span><span id="engine-legend" hidden><i class="engine"></i> Engine envelope</span><span id="differential-legend" hidden><i class="differential"></i> Differential envelope</span><span id="cockpit-legend" hidden><i class="cockpit"></i> Cockpit envelope</span></div>
             <p id="arb-viewer-note" class="hint arb-viewer-note" hidden></p>
             <p id="tire-viewer-note" class="hint obstacle-viewer-note"></p>
+            <p id="preview-frame-note" class="hint obstacle-viewer-note"></p>
             <p id="obstacle-viewer-note" class="hint obstacle-viewer-note" hidden></p>
             <div class="preview-stats"><div><small>TRACK WIDTH</small><strong id="stat-track"></strong></div><div><small>SUSPENSION POINTS / SIDE</small><strong id="stat-points"></strong></div><div><small>TOPOLOGY</small><strong id="stat-solver"></strong></div></div>
           </section>
@@ -103,5 +104,5 @@
   <dialog id="library"><div class="dialog-heading"><div><span class="eyebrow">DESIGN LIBRARY</span><h2>Choose your starting point.</h2></div><button id="close-library" class="icon-button" aria-label="Close design library">×</button></div><p class="hint">Opening a design replaces the current draft. Save your changes first.</p><div id="presets"></div><h3 class="library-subtitle">Saved in this browser</h3><div id="saved-designs"></div><label class="button subtle import-label">↑ Import design JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label><p id="library-error" role="alert"></p></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   </div>
-  <script src="./src/startup.js?v=0.2.10"></script>
+  <script src="./src/startup.js?v=0.2.11"></script>
 </body></html>

@@ -6,7 +6,20 @@ Suspension Studio uses **SAE J670 Z-down: +X forward, +Y right, +Z down**, a rig
 
 Hardpoints are in **millimeters**. The solver uses radians internally for rotation vectors and reports alignment in degrees. Uppercase X/Y/Z in the editor are component labels; they do not identify an earth-fixed frame.
 
-Each axle has a chassis-fixed design frame. Its origin is the intersection of the vehicle center plane, the nominal static axle station, and the static ground plane. Axes are parallel to the vehicle's reference axes. This datum remains fixed during a suspension sweep; it does not follow the wheel or road. It is not a CG origin. The current app has no body mass or CG model.
+The coordinate editors and assembly preview use one **front-axle origin**: the intersection of the vehicle center plane, the nominal static front-axle station, and the static ground plane. The rear-axle origin is `[-L, 0, 0]` in this frame, where `L` is the entered wheelbase in millimeters. Thus a point directly above the nominal rear-axle station has editor X = `−L`, not zero. Both axle frames have parallel axes and the same ground height; no reference pitch or relative datum-height offset is modeled. These chassis-fixed datums do not follow the wheels during a sweep and are not CG origins.
+
+The existing solver and version 2 saved-design format retain a separate **axle-local frame** for each axle. The editor converts at its boundary; it does not relabel local data as front-referenced data. For rear points:
+
+```text
+X_editor = X_rear_local − L
+X_rear_local = X_editor + L
+Y_editor = Y_rear_local
+Z_editor = Z_rear_local
+```
+
+Front-axle coordinates are identical in both frames. For example, with `L = 1530 mm`, a rear hardpoint at local `[80, −250, −300]` is entered and displayed as `[-1450, −250, −300]`. The rear wheel center at local X = 0 appears at editor X = −1530 mm. Unknown ARB or obstacle coordinate components remain unknown; translation never substitutes zero for a blank.
+
+The following generated wheel-center definitions are **axle-local**; apply the rear translation above for the editor and assembly preview:
 
 - Left wheel center: `[0, -track/2, -wheelRadius]` in generated geometry.
 - Right wheel center: `[0, +track/2, -wheelRadius]`.
@@ -14,7 +27,9 @@ Each axle has a chassis-fixed design frame. Its origin is the intersection of th
 - Left-to-right reflection of a position/free vector: `[X, -Y, Z]`.
 - Reflection of an axial vector (rotation, angular velocity, moment): `[-Rx, Ry, -Rz]`.
 
-A future vehicle assembly anchored at the front datum will place the rear datum at `[-wheelbase, 0, 0]`, assuming no reference pitch or relative datum height. A CG-based dynamics frame will need an explicit translation and any required rotation from that assembly frame. The obstacle preview uses that same stated flat-frame assumption to show shared packaging envelopes from either axle view: for an obstacle point entered in reference axle frame `r`, `X_active = X_r + (I_active,rear − I_r,rear) × wheelbase`, where `I` is 1 for rear and 0 for front. Y and Z are unchanged. This is a display transform only; it does not infer body pitch or a vertical datum offset.
+The preview places the selected axle in the front-origin assembly frame and marks both axle datums. Static and solved suspension points, ARB points, wheels and packaging envelopes use that same frame. Changing wheelbase keeps each axle's local geometry fixed and moves the rear assembly along X; displayed rear X values change by `−ΔL`. Distances within a translated assembly and all direction vectors remain unchanged. A CG-based dynamics frame will need an explicit translation and any required rotation from this assembly frame.
+
+Obstacle centers are also entered and displayed relative to the front origin. Existing obstacle records retain their `referenceAxle` and local center coordinates for compatibility. A stored obstacle point in reference frame `r` is displayed at `X_editor = X_r − I_r,rear × L`, where `I` is 1 for rear and 0 for front. For the existing axle-local interference check it is transformed instead as `X_active = X_r + (I_active,rear − I_r,rear) × L`. Y and Z do not change. Each path applies the translation once. The **Moves with wheelbase changes** selector chooses the storage anchor; changing it converts the stored center through the front frame, preserving its current position and unknown components. On a subsequent wheelbase change, a rear-referenced stored envelope follows the rear datum; a front-referenced envelope stays at its existing front-frame X. These are coordinate transformations, not suspension calculations.
 
 Optional engine and differential envelopes are axis-aligned boxes described by center `[X,Y,Z]` and length, width and height. The optional cockpit envelope is a trapezoid in the Y–Z cross-section, extruded along X by its depth. For cockpit height `H` and center Z `Zc`, the top and bottom are at `Zc − H/2` and `Zc + H/2`; their half-widths are `topWidth/2` and `bottomWidth/2`. This follows the project sign convention that top is toward negative Z. These are user-entered visualization and packaging envelopes, not vehicle-specific measured geometry. Complete visible shapes are used in the heave interference check.
 
@@ -52,7 +67,7 @@ For future force models, signed vehicle force components follow these axes: weig
 
 ## Schema and migration
 
-New JSON includes:
+Saved and exported JSON retains the existing axle-local representation:
 
 ```json
 {
@@ -62,6 +77,8 @@ New JSON includes:
   "lengthUnit": "mm"
 }
 ```
+
+The front-origin coordinate editor is an interface adapter, not a schema migration. Suspension hardpoints and ARB points in the rear axle's v2 JSON remain rear-local. The browser library retains the same `.v2` storage key. Existing v2 designs load with the same local values and physical assembly; their rear X values appear one wheelbase lower in the editor because the displayed reference origin has changed. JSON imports must follow their declared `AXLE_LOCAL` metadata: do not paste front-origin rear X values directly into an axle-local JSON file. Front-origin values entered through the editor are converted before saving or solving.
 
 Schema v2 may omit the optional top-level `obstacles` field for older designs. If present, it stores optional static engine, differential, and cockpit envelopes in SAE J670 Z-down axle-local millimeters. Incomplete centers/dimensions are `null` until entered; v1 obstacle fields are rejected because their coordinate meaning is unspecified.
 
@@ -91,3 +108,7 @@ Browser storage is read from `suspension-studio.designs.v2`, falling back to `.v
 - Milliken & Milliken, *Race Car Vehicle Dynamics*, Chapter 4, Sections 4.1–4.3, printed pp. 114–120 (supplied two-page scan PDF pages 76–79). The text was reviewed; origin choices vary with the model, so Studio declares its own local datum explicitly.
 
 Regression checks cover the coordinate transform, migration, left/right steering and camber signs, link-length invariance, and physical poses captured before conversion for seven topology/actuation combinations. These establish software consistency, not experimental validation of a real vehicle.
+
+The front-origin editor translation follows the Euclidean identity `P_front = P_local + O_axle`, with `O_front = [0,0,0]` and `O_rear = [−L,0,0]`. For any two positions in the same translated frame, `(P₂ + O) − (P₁ + O) = P₂ − P₁`; therefore link lengths, angles and the existing local solver constraints are unchanged. This is a project frame-adapter derivation, not a new vehicle-dynamics equation attributed to a reference book. Relevant verification checks are front identity, rear forward/inverse conversion, distance preservation, unchanged unknown components, import/export compatibility, and consistent placement of solved points, ARBs and obstacles. A mathematical translation identity does not establish surveyed-vehicle accuracy.
+
+Verification on 2026-10-27: all 201 Node tests passed, including 14 additional frame/editor/viewer checks. Browser checks covered front X = 0 and rear X = −1530 at a 1530 mm wheelbase, rear decimal entry, a wheelbase change to 1600 mm, nullable ARB inputs, obstacle anchor changes that preserve front-frame position, invalid-entry retention, saved-design reload, an older v2 design, and a solved rear bump pose. Downloaded JSON retained `AXLE_LOCAL` metadata and the expected local hardpoint, ARB and obstacle coordinates. These checks establish software and coordinate consistency for the checked cases, not measured suspension accuracy.

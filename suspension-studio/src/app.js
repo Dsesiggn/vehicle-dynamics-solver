@@ -1,8 +1,9 @@
 import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.8';
 import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel,TIRE_TREAD_WIDTH_MAX} from './model.js?v=0.2.8';
 import {solveAxle} from './solver.js?v=0.2.8';
-import {SuspensionViewer} from './viewer.js?v=0.2.10';
-import {evaluateHardpointEdits} from './hardpoint-edits.js?v=0.2.10';
+import {SuspensionViewer} from './viewer.js?v=0.2.11';
+import {evaluateHardpointEdits} from './hardpoint-edits.js?v=0.2.11';
+import {axlePointToFront,frontPointToAxle} from './coordinate-frames.js?v=0.2.11';
 import {ARB_POINTS,newAntiRollBar,arbComplete,arbPreviewGeometry} from './arb.js?v=0.2.7';
 import {OBSTACLE_TYPES,newObstacles,obstacleComplete} from './obstacles.js?v=0.2.5';
 import {evaluateHeavePosition,scanHeaveTravel} from './interference.js?v=0.2.8';
@@ -17,6 +18,10 @@ try {
 const viewer=new SuspensionViewer($('scene'));
 document.addEventListener('studio-theme-change',()=>viewer.draw());
 const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inputFrame={frame:'FRONT_AXLE'};
+const coordinateOffset=(axle,axis)=>axle==='rear'&&Number(axis)===0?design.wheelbase:0;
+const frontCoordinate=(value,axle,axis)=>value===null?null:value-coordinateOffset(axle,axis);
+const localCoordinate=(value,axle,axis)=>value===null?null:value+coordinateOffset(axle,axis);
 function toast(message) { $('toast').textContent=message;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),4200); }
 function markDirty() {dirty=true;lastHeaveScan=null;$('save-state').textContent='Unsaved changes';}
 function resetMotion() {bump=0;rack=0;heavePosition=0;heavePreviewActive=false;$('bump').value=0;$('steer').value=0;$('heave-position').value=0;}
@@ -45,14 +50,14 @@ function renderARB() {
   const arb=design.axles[active].antiRollBar,enabled=arb?.enabled===true;
   $('arb-enabled').checked=enabled;$('arb-enabled').setAttribute('aria-expanded',String(enabled));
   $('arb-inputs').hidden=!enabled;
-  $('arb-point-fields').innerHTML=enabled?ARB_POINTS.map(({key,label,description})=>`<fieldset class="arb-point"><legend>${label}</legend><p class="hint">${description}</p><div class="arb-coordinates">${'XYZ'.split('').map((axis,i)=>`<label class="field">${axis}<input type="number" step="any" min="-10000" max="${i===1?0:10000}" value="${arb.points[key][i]??''}" placeholder="mm" data-arb-point="${key}" data-axis="${i}" aria-label="ARB ${label} ${axis}"></label>`).join('')}</div></fieldset>`).join(''):'';
+  $('arb-point-fields').innerHTML=enabled?ARB_POINTS.map(({key,label,description})=>`<fieldset class="arb-point"><legend>${label}</legend><p class="hint">${description}</p><div class="arb-coordinates">${'XYZ'.split('').map((axis,i)=>`<label class="field">${axis}<input type="number" step="any" min="${-10000-coordinateOffset(active,i)}" max="${i===1?0:10000-coordinateOffset(active,i)}" value="${frontCoordinate(arb.points[key][i],active,i)??''}" placeholder="mm" data-arb-point="${key}" data-axis="${i}" aria-label="ARB ${label} ${axis}"></label>`).join('')}</div></fieldset>`).join(''):'';
 }
 function renderObstacles() {
   const values=design.obstacles||newObstacles();
   $('obstacle-fields').innerHTML=OBSTACLE_TYPES.map(({key,label,dimensions})=>{
-    const obstacle=values[key],centerFields='XYZ'.split('').map((axis,index)=>`<label class="field">${axis}<input type="number" step="any" min="-10000" max="10000" value="${obstacle.center[index]??''}" placeholder="mm" data-obstacle-kind="${key}" data-obstacle-field="center" data-axis="${index}" aria-label="${label} center ${axis} in mm"></label>`).join('');
+    const obstacle=values[key],centerFields='XYZ'.split('').map((axis,index)=>`<label class="field">${axis}<input type="number" step="any" min="${-10000-coordinateOffset(obstacle.referenceAxle,index)}" max="${10000-coordinateOffset(obstacle.referenceAxle,index)}" value="${frontCoordinate(obstacle.center[index],obstacle.referenceAxle,index)??''}" placeholder="mm" data-obstacle-kind="${key}" data-obstacle-field="center" data-axis="${index}" aria-label="${label} center ${axis} in mm"></label>`).join('');
     const dimensionFields=dimensions.map(({key:dimension,label:dimensionLabel,axis})=>`<label class="field">${dimensionLabel} (${axis})<input type="number" step="any" min="0.001" max="10000" value="${obstacle.dimensions[dimension]??''}" placeholder="mm" data-obstacle-kind="${key}" data-obstacle-field="${dimension}" aria-label="${label} ${dimensionLabel} in mm"></label>`).join('');
-    return `<fieldset class="obstacle-card"><legend>${label}</legend><div class="obstacle-card-heading"><label class="switch-label"><input type="checkbox" data-obstacle-visible="${key}" ${obstacle.visible?'checked':''} aria-label="Show ${label.toLowerCase()} in preview"> Show in preview</label></div><label class="field obstacle-reference">Coordinate reference axle<select data-obstacle-reference="${key}" aria-label="${label} coordinate reference axle"><option value="front" ${obstacle.referenceAxle==='front'?'selected':''}>Front axle datum</option><option value="rear" ${obstacle.referenceAxle==='rear'?'selected':''}>Rear axle datum</option></select></label><div class="obstacle-subheading">CENTER · SAE J670 Z-DOWN</div><div class="obstacle-coordinates">${centerFields}</div><div class="obstacle-subheading">DIMENSIONS</div><div class="obstacle-dimensions">${dimensionFields}</div><p class="hint obstacle-status" id="obstacle-${key}-status" role="status"></p></fieldset>`;
+    return `<fieldset class="obstacle-card"><legend>${label}</legend><div class="obstacle-card-heading"><label class="switch-label"><input type="checkbox" data-obstacle-visible="${key}" ${obstacle.visible?'checked':''} aria-label="Show ${label.toLowerCase()} in preview"> Show in preview</label></div><label class="field obstacle-reference">Moves with wheelbase changes<select data-obstacle-reference="${key}" aria-label="${label} wheelbase-change anchor"><option value="front" ${obstacle.referenceAxle==='front'?'selected':''}>Front axle datum</option><option value="rear" ${obstacle.referenceAxle==='rear'?'selected':''}>Rear axle datum</option></select></label><div class="obstacle-subheading">CENTER · FRONT ORIGIN · SAE J670</div><div class="obstacle-coordinates">${centerFields}</div><div class="obstacle-subheading">DIMENSIONS</div><div class="obstacle-dimensions">${dimensionFields}</div><p class="hint obstacle-status" id="obstacle-${key}-status" role="status"></p></fieldset>`;
   }).join('');
 }
 function renderHeaveStatus(errors, current, inputIssue='') {
@@ -84,7 +89,7 @@ function update() {
   const a=design.axles[active],errors=validateDesign(design);
   const pendingAxles=Object.keys(hardpointDrafts);
   const pendingIssues=pendingAxles.map(axle=>{
-    const evaluation=evaluateHardpointEdits(design,axle,hardpointDrafts[axle]);
+    const evaluation=evaluateHardpointEdits(design,axle,hardpointDrafts[axle],inputFrame);
     return `${title(axle)} hardpoint edits not applied: ${evaluation.errors.join(' ')||'Finish the entry in the hardpoint editor or discard the unaccepted edits.'}`;
   });
   const invalidInput=[...document.querySelectorAll('input[type=number]')].find(input=>!input.disabled&&(!(input.dataset.arbPoint||input.dataset.obstacleField||input.dataset.linkOd||input.dataset.tireWidth)&&input.value===''||!input.checkValidity()));
@@ -105,6 +110,8 @@ function update() {
   $('preview-input-status').textContent=inputIssue?`${inputIssue} The preview retains the last accepted coordinates.`:'';
   $('hardpoint-status').classList.toggle('error',invalidField);
   $('hardpoint-status').textContent=inputIssue||hardpointMessages[active]||'Enter coordinates to update the live preview. Incomplete or invalid entries stay editable until corrected.';
+  $('hardpoint-frame-note').textContent=`All XYZ inputs use the front-axle ground origin. Front datum X = 0 mm; rear datum X = ${-design.wheelbase} mm. +X forward · +Y right · +Z down. Left-side Y and height above ground Z are negative.`;
+  $('preview-frame-note').textContent=`Front-origin coordinates · Front datum [0, 0, 0] mm · Rear datum [${-design.wheelbase}, 0, 0] mm · Wheelbase ${design.wheelbase} mm. Only the selected axle suspension is shown.`;
   $('discard-hardpoint-edits').hidden=!hardpointDrafts[active];
   $('stat-track').innerHTML=`${a.track.toLocaleString(undefined,{maximumFractionDigits:1})} <span>mm</span>`;
   $('stat-points').textContent=Object.keys(a.hardpoints).length;$('stat-solver').textContent=TOPOLOGIES[a.topology].solver;
@@ -112,7 +119,7 @@ function update() {
   const arbEnabled=a.antiRollBar?.enabled===true,arbReady=arbComplete(a.antiRollBar),arbPreview=arbPreviewGeometry(a.antiRollBar);
   const invalidArb=[...$('arb-point-fields').querySelectorAll('input')].find(input=>!input.validity.valid);
   $('arb-status').classList.toggle('error',!!invalidArb);
-  $('arb-status').textContent=invalidArb?'Use coordinates from −10000 to 10000 mm; left-side Y must be zero or negative. Only complete valid XYZ points are previewed.':arbReady?'All ARB points entered and shown.':arbPreview.layoutComplete?'U-bar and both drop links shown. Chassis bearing location is unentered; its marker is optional for this preview and is not inferred.':arbPreview.enteredPointCount?`${arbPreview.enteredPointCount} of 4 left-side points shown, with their mirrored right-side points. Unentered: ${arbPreview.missingLabels.join(', ')}. Segments appear when both endpoints are entered; unknown coordinates stay blank.`:'Enter XYZ for any ARB point to preview it. The bar bend, lever-arm tip, and suspension pickup define the displayed bar and links; the bearing marker is optional. A checkbox alone does not define a location.';
+  $('arb-status').textContent=invalidArb?'Use the coordinate range shown by each input; X is measured from the front origin. Left-side Y must be zero or negative. Only complete valid XYZ points are previewed.':arbReady?'All ARB points entered and shown.':arbPreview.layoutComplete?'U-bar and both drop links shown. Chassis bearing location is unentered; its marker is optional for this preview and is not inferred.':arbPreview.enteredPointCount?`${arbPreview.enteredPointCount} of 4 left-side points shown, with their mirrored right-side points. Unentered: ${arbPreview.missingLabels.join(', ')}. Segments appear when both endpoints are entered; unknown coordinates stay blank.`:'Enter XYZ for any ARB point to preview it. The bar bend, lever-arm tip, and suspension pickup define the displayed bar and links; the bearing marker is optional. A checkbox alone does not define a location.';
   $('arb-legend').hidden=!arbPreview.points.length;
   $('arb-viewer-note').hidden=!arbEnabled;
   $('arb-viewer-note').textContent=arbReady?'U-bar ARB · static reference, including during bump and steering.':arbPreview.layoutComplete?'U-bar ARB · static bar and drop links. Bearing location unentered; no bearing marker inferred.':arbPreview.points.length?`U-bar ARB · partial static layout (${arbPreview.enteredPointCount}/4 left-side points). Unentered: ${arbPreview.missingLabels.join(', ')}. No missing geometry is inferred.`:'U-bar ARB · no complete XYZ points entered yet.';
@@ -122,7 +129,7 @@ function update() {
     const invalid=[...$('obstacle-fields').querySelectorAll(`[data-obstacle-kind="${key}"]`)].some(input=>input.type==='number'&&!input.checkValidity());
     $(`${key}-legend`).hidden=!visible||!ready;
     const status=$(`obstacle-${key}-status`);status.classList.toggle('error',invalid);
-    status.textContent=invalid?'Enter a center coordinate from −10000 to 10000 mm and dimensions greater than 0 up to 10000 mm.':!visible?'Hidden from the preview and heave check; entered values are retained.':ready?'Shown in both axle views and included in heave clearance checks.':'Enter all center coordinates and dimensions to show and check this envelope; incomplete geometry can be saved.';
+    status.textContent=invalid?'Use the center-coordinate range shown by each input and dimensions greater than 0 up to 10000 mm. All centers use the front origin.':!visible?'Hidden from the preview and heave check; entered values are retained.':ready?'Shown in both axle views and included in heave clearance checks.':'Enter all center coordinates and dimensions to show and check this envelope; incomplete geometry can be saved.';
     hasVisibleObstacle||=visible;
   }
   $('obstacle-viewer-note').hidden=!hasVisibleObstacle;
@@ -139,7 +146,7 @@ function update() {
 }
 function renderHardpoints() {
   $('hardpoint-axle').textContent=`/ ${title(active)} axle`;
-  $('hardpoint-rows').innerHTML=Object.entries(design.axles[active].hardpoints).map(([key,xyz])=>`<tr><td>${hardpointLabel(key)}</td>${xyz.map((n,i)=>`<td><input type="number" step="any" min="-10000" max="10000" value="${escape(hardpointDrafts[active]?.[key]?.[i]??String(n))}" data-point="${key}" data-axis="${i}" aria-label="${hardpointLabel(key)} ${'XYZ'[i]}"></td>`).join('')}<td>${isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
+  $('hardpoint-rows').innerHTML=Object.entries(design.axles[active].hardpoints).map(([key,xyz])=>`<tr><td>${hardpointLabel(key)}</td>${axlePointToFront(xyz,active,design.wheelbase).map((n,i)=>`<td><input type="number" step="any" min="${-10000-coordinateOffset(active,i)}" max="${10000-coordinateOffset(active,i)}" value="${escape(hardpointDrafts[active]?.[key]?.[i]??String(n))}" data-point="${key}" data-axis="${i}" aria-label="${hardpointLabel(key)} ${'XYZ'[i]}"></td>`).join('')}<td>${isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
 }
 function reveal(panel) {
   $(panel).hidden=false;
@@ -181,7 +188,8 @@ $('arb-point-fields').addEventListener('input',e=>{
   const input=e.target;if(!input.dataset.arbPoint)return;
   if(!input.checkValidity()){update();return;}
   const arb=design.axles[active].antiRollBar;
-  arb.points[input.dataset.arbPoint][Number(input.dataset.axis)]=input.value===''?null:Number(input.value);
+  const axis=Number(input.dataset.axis);
+  arb.points[input.dataset.arbPoint][axis]=localCoordinate(input.value===''?null:Number(input.value),active,axis);
   markDirty();update();
 });
 $('obstacle-fields').addEventListener('change',e=>{
@@ -190,14 +198,17 @@ $('obstacle-fields').addEventListener('change',e=>{
     const collection=design.obstacles??=newObstacles();collection[input.dataset.obstacleVisible].visible=input.checked;markDirty();update();return;
   }
   if(input.dataset.obstacleReference){
-    const collection=design.obstacles??=newObstacles();collection[input.dataset.obstacleReference].referenceAxle=input.value;markDirty();update();
+    const collection=design.obstacles??=newObstacles(),obstacle=collection[input.dataset.obstacleReference];
+    const center=frontPointToAxle(axlePointToFront(obstacle.center,obstacle.referenceAxle,design.wheelbase),input.value,design.wheelbase);
+    if(center.some(value=>value!==null&&Math.abs(value)>10000)){input.value=obstacle.referenceAxle;toast('This anchor would exceed the stored coordinate range. The envelope has not moved.');return;}
+    obstacle.center=center;obstacle.referenceAxle=input.value;markDirty();renderObstacles();update();
   }
 });
 $('obstacle-fields').addEventListener('input',e=>{
   const input=e.target;if(!input.dataset.obstacleField)return;
   markDirty();if(!input.checkValidity()){update();return;}
   const collection=design.obstacles??=newObstacles(),obstacle=collection[input.dataset.obstacleKind],field=input.dataset.obstacleField,value=input.value===''?null:Number(input.value);
-  if(field==='center')obstacle.center[Number(input.dataset.axis)]=value;else obstacle.dimensions[field]=value;
+  if(field==='center')obstacle.center[Number(input.dataset.axis)]=localCoordinate(value,obstacle.referenceAxle,input.dataset.axis);else obstacle.dimensions[field]=value;
   update();
 });
 $('link-od-fields').addEventListener('input',e=>{
@@ -206,7 +217,12 @@ $('link-od-fields').addEventListener('input',e=>{
   design.interference.linkOD=input.value===''?null:Number(input.value);update();
 });
 $('design-name').addEventListener('input',()=>{design.name=$('design-name').value;markDirty();update();});
-$('wheelbase').addEventListener('input',()=>{if(!validInput($('wheelbase')))return;design.wheelbase=Number($('wheelbase').value);markDirty();update();});
+$('wheelbase').addEventListener('input',()=>{
+  const unfinished=[...document.querySelectorAll('[data-arb-point],[data-obstacle-field]')].find(input=>!input.checkValidity());
+  if(unfinished){$('wheelbase').value=design.wheelbase;toast('Correct the invalid ARB or obstacle entry before changing wheelbase. Your entry has been retained.');update();return;}
+  if(!validInput($('wheelbase')))return;
+  design.wheelbase=Number($('wheelbase').value);hardpointMessages={};markDirty();renderARB();renderObstacles();update();
+});
 $('wheel-diameter').addEventListener('input',()=>{
   if(!validInput($('wheel-diameter')))return;const diameter=Number($('wheel-diameter').value),dz=(diameter-design.wheelDiameter)/2;
   for(const a of Object.values(design.axles))for(const p of Object.values(a.hardpoints))p[2]-=dz;
@@ -219,10 +235,10 @@ $('hardpoint-rows').addEventListener('input',e=>{
   const key=input.dataset.point,axis=Number(input.dataset.axis);
   const edits=hardpointDrafts[active]??={};(edits[key]??={})[axis]=input.value;
   markDirty();
-  const evaluation=evaluateHardpointEdits(design,active,edits);
+  const evaluation=evaluateHardpointEdits(design,active,edits,inputFrame);
   if(evaluation.errors.length||!input.checkValidity()){update();return;}
   design.axles[active]=evaluation.axle;delete hardpointDrafts[active];
-  hardpointMessages[active]=`${hardpointLabel(key)} ${'XYZ'[axis]} = ${evaluation.axle.hardpoints[key][axis]} mm applied. Live preview updated.`;
+  hardpointMessages[active]=`${hardpointLabel(key)} ${'XYZ'[axis]} = ${frontCoordinate(evaluation.axle.hardpoints[key][axis],active,axis)} mm from the front origin applied. Live preview updated.`;
   $('track').value=evaluation.axle.track;$('rack-length').value=evaluation.axle.rackLength;
   resetMotion();update();
 });

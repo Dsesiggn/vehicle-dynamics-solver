@@ -1,4 +1,5 @@
 import { clone, hardpointLabel, validateDesign } from './model.js?v=0.2.8';
+import { frontPointToAxle } from './coordinate-frames.js?v=0.2.11';
 
 // Complete decimal values, with an optional complete exponent. In particular,
 // a lone sign, trailing decimal point, partial exponent and hexadecimal input
@@ -7,16 +8,18 @@ const DECIMAL = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 /**
- * Evaluate a transaction of user-entered, axle-local SAE coordinates in mm.
+ * Evaluate SAE coordinates in the declared input frame, returning axle-local mm.
  * Only the touched cells are overlaid on the current design. Invalid drafts
  * return errors without replacing any previously accepted design values.
  * This is an editor boundary; it introduces no kinematic constraints.
  */
-export function evaluateHardpointEdits(design, axleName, edits) {
+export function evaluateHardpointEdits(design, axleName, edits, {frame='AXLE_LOCAL'}={}) {
   if (!['front', 'rear'].includes(axleName) || !record(design?.axles?.[axleName]?.hardpoints)) {
     return { axle: null, errors: ['Select a front or rear axle with existing hardpoints.'] };
   }
   if (!record(edits)) return { axle: null, errors: ['Hardpoint edits must contain named coordinate cells.'] };
+  if (!['AXLE_LOCAL','FRONT_AXLE'].includes(frame)) return { axle: null, errors: ['Unknown hardpoint input frame.'] };
+  if (frame==='FRONT_AXLE'&&(!Number.isFinite(design.wheelbase)||design.wheelbase<=0)) return {axle:null,errors:['A finite positive wheelbase is required for front-origin inputs.']};
 
   const candidate = clone(design), axle = candidate.axles[axleName], errors = [];
   for (const [key, coordinates] of Object.entries(edits)) {
@@ -39,11 +42,12 @@ export function evaluateHardpointEdits(design, axleName, edits) {
         errors.push(`${coordinate}: enter a complete decimal number in mm.`);
         continue;
       }
-      const value = Number(text);
-      if (!Number.isFinite(value) || Math.abs(value) > 10000) {
-        errors.push(`${coordinate}: enter a finite value from −10000 to 10000 mm.`);
+      const entered = Number(text), offset=frame==='FRONT_AXLE'&&axleName==='rear'&&axis==='0'?design.wheelbase:0;
+      if (!Number.isFinite(entered) || entered < -10000-offset || entered > 10000-offset) {
+        errors.push(`${coordinate}: enter a finite value from ${-10000-offset} to ${10000-offset} mm${frame==='FRONT_AXLE'?' from the front origin':''}.`);
         continue;
       }
+      const value=frame==='FRONT_AXLE'&&axis==='0'?frontPointToAxle([entered,0,0],axleName,design.wheelbase)[0]:entered;
       point[Number(axis)] = value;
     }
   }

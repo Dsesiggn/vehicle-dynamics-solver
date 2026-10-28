@@ -3,6 +3,46 @@ import assert from 'node:assert/strict';
 import { clone, newDesign, validateDesign } from '../src/model.js';
 import { importDesign } from '../src/migration.js';
 import { evaluateHardpointEdits } from '../src/hardpoint-edits.js';
+import { axlePointToFront } from '../src/coordinate-frames.js';
+import { solveAxle } from '../src/solver.js';
+
+test('front-origin rear edits convert once, preserve the static assembly, and survive v2 import', () => {
+  const design=newDesign();design.wheelbase=1530;
+  const before=clone(design), frame={frame:'FRONT_AXLE'};
+  const edits=Object.fromEntries(Object.entries(design.axles.rear.hardpoints).map(([key,p])=>[key,Object.fromEntries(axlePointToFront(p,'rear',1530).map((value,axis)=>[axis,String(value)]))]));
+  const accepted=evaluateHardpointEdits(design,'rear',edits,frame);
+  assert.deepEqual(accepted.errors,[]);
+  assert.deepEqual(accepted.axle,before.axles.rear);
+  design.axles.rear=accepted.axle;
+  assert.deepEqual(importDesign(JSON.parse(JSON.stringify(design))).design,before);
+  for(const travel of [-25.4,0,25.4]) assert.deepEqual(solveAxle(design.axles.rear,travel,0),solveAxle(before.axles.rear,travel,0));
+  assert.deepEqual(design.axles.front,before.axles.front);
+});
+
+test('front-origin X edits preserve Y/Z and convert the axle-local input bounds', () => {
+  const d=newDesign();d.wheelbase=1530;const before=clone(d),frame={frame:'FRONT_AXLE'};
+  const rear=evaluateHardpointEdits(d,'rear',{uca_front:{0:'-1402.87655'}},frame);
+  assert.deepEqual(rear.errors,[]);
+  assert.ok(Math.abs(rear.axle.hardpoints.uca_front[0]-127.12345)<1e-10);
+  assert.deepEqual(rear.axle.hardpoints.uca_front.slice(1),d.axles.rear.hardpoints.uca_front.slice(1));
+  for(const [entered,local] of [['-11530',-10000],['8470',10000]]) {
+    const r=evaluateHardpointEdits(d,'rear',{uca_front:{0:entered}},frame);
+    assert.deepEqual(r.errors,[]);assert.equal(r.axle.hardpoints.uca_front[0],local);
+  }
+  for(const entered of ['', '-', '-1530.', '8470.01', '-11530.01', '1e309']) assert.equal(evaluateHardpointEdits(d,'rear',{uca_front:{0:entered}},frame).axle,null);
+  assert.equal(evaluateHardpointEdits(d,'front',{uca_front:{0:'127.12345'}},frame).axle.hardpoints.uca_front[0],127.12345);
+  assert.equal(evaluateHardpointEdits(d,'rear',{}, {frame:'UNKNOWN'}).axle,null);
+  assert.deepEqual(d,before);
+});
+
+test('pending front-origin entries keep their meaning across wheelbase changes', () => {
+  const d=newDesign(),edits={wheel_center:{0:'-1530',1:'-6'}},frame={frame:'FRONT_AXLE'};
+  assert.equal(evaluateHardpointEdits(d,'rear',edits,frame).axle,null);
+  d.wheelbase=1530;edits.wheel_center[1]='-608.05';
+  const r=evaluateHardpointEdits(d,'rear',edits,frame);
+  assert.deepEqual(r.errors,[]);assert.deepEqual(r.axle.hardpoints.wheel_center,[0,-608.05,-230]);
+  assert.equal(r.axle.track,1216.1);
+});
 
 test('wheel-center Y drafts remain invalid until their derived track meets the existing schema', () => {
   const design = newDesign(), before = clone(design);
