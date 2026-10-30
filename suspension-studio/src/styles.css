@@ -1663,3 +1663,10 @@ dialog::backdrop {
     font-size:16px;
   }
 }
+
+/* Steering-axis references remain distinct from the physical strut shaft. */
+.viewer-bottom {flex-wrap:wrap;gap:8px;}
+.viewer-toggles {display:flex;align-items:center;flex-wrap:wrap;gap:10px;}
+.legend {flex-wrap:wrap;}
+.legend i.steering-axis {height:0;background:none;border-top:2px dashed #3866a0;width:16px;}
+:root[data-theme="dark"] .legend i.steering-axis {border-color:#7dc7ff;}

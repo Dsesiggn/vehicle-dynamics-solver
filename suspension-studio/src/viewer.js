@@ -6,6 +6,7 @@ import {OBSTACLE_TYPES,obstacleMesh} from './obstacles.js?v=0.2.5';
 import {memberSegmentId} from './interference.js?v=0.2.12';
 import {tireTreadGeometry} from './tire-geometry.js?v=0.2.12';
 import {axlePointToFront} from './coordinate-frames.js?v=0.2.11';
+import {steeringAxisGeometry} from './steering-axis.js?v=0.2.13';
 
 /** Build display positions in the front-axle frame without altering local solver data. */
 export function suspensionPreviewGeometry(a,diameter,motion,context) {
@@ -17,7 +18,7 @@ export function suspensionPreviewGeometry(a,diameter,motion,context) {
     const points=Object.fromEntries(Object.entries(local).map(([key,value])=>[key,toFront(value)]));
     // Translation changes positions, never the wheel-axis direction or rotation.
     const wheelAxis=rotate([0,side,0],solved?.rotation||[0,0,0]);
-    return {side,points,wheelAxis,tire:tireTreadGeometry(points.wheel_center,wheelAxis,diameter,a.tireTreadWidth??null)};
+    return {side,points,wheelAxis,tire:tireTreadGeometry(points.wheel_center,wheelAxis,diameter,a.tireTreadWidth??null),steeringAxis:steeringAxisGeometry(a.topology,points)};
   });
   const localArb=arbPreviewGeometry(a.antiRollBar);
   const arb={...localArb,
@@ -33,12 +34,12 @@ export function suspensionPreviewGeometry(a,diameter,motion,context) {
   return {corners,arb,chassis,obstacles,datums};
 }
 const PALETTES={
-  light:{arb:'#448272',arm:'#71889d',actuator:'#98627f',steering:'#ad976c',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af',engine:'#b57a2a',differential:'#39769b',cockpit:'#80558e',interference:'#d21f2b'},
-  dark:{arb:'#92d4bf',arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3',engine:'#f0bd70',differential:'#82c8eb',cockpit:'#d5a6e7',interference:'#ff716c'},
+  light:{arb:'#448272',arm:'#71889d',actuator:'#98627f',steering:'#ad976c',steeringAxis:'#3866a0',upright:'#8f86a1',point:'#a98dbc',chassis:'#b6b8c7',grid:'#bcc0cb',centerline:'#b0acbc',pointFill:'#faf8fc',label:'#766b83',tire:'#a0a2b6',rim:'#aaa4b7',axisX:'#ae8497',axisY:'#8c9b86',axisZ:'#8b93af',engine:'#b57a2a',differential:'#39769b',cockpit:'#80558e',interference:'#d21f2b'},
+  dark:{arb:'#92d4bf',arm:'#a8c6de',actuator:'#df9fbe',steering:'#dec18b',steeringAxis:'#7dc7ff',upright:'#c4b3df',point:'#e2bdf3',chassis:'#8795a8',grid:'#55637a',centerline:'#8795a8',pointFill:'#1b2330',label:'#d7cbe3',tire:'#a4b1c8',rim:'#b5a9ce',axisX:'#efadbb',axisY:'#abcba3',axisZ:'#b3c9f3',engine:'#f0bd70',differential:'#82c8eb',cockpit:'#d5a6e7',interference:'#ff716c'},
 };
 export class SuspensionViewer {
   constructor(canvas) {
-    this.canvas=canvas;this.ctx=canvas.getContext('2d');this.yaw=-.48;this.pitch=.32;this.zoom=1;this.labels=false;this.fitMode=false;this.visibleObstacleKeys=new Set();
+    this.canvas=canvas;this.ctx=canvas.getContext('2d');this.yaw=-.48;this.pitch=.32;this.zoom=1;this.labels=false;this.showSteeringAxis=true;this.fitMode=false;this.visibleObstacleKeys=new Set();
     new ResizeObserver(()=>this.draw()).observe(canvas);
     canvas.addEventListener('pointerdown',e=>{this.drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId);});
     canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw+=(e.clientX-this.drag[0])*.007;this.pitch=Math.max(-1.5,Math.min(1.5,this.pitch+(e.clientY-this.drag[1])*.007));this.drag=[e.clientX,e.clientY];this.draw();});
@@ -95,7 +96,7 @@ export class SuspensionViewer {
     for(let x=gridRear;x<=900;x+=100)drawLine([[x,-2000,0],[x,2000,0]],colors.grid,.6,.3);
     drawLine([[gridRear,0,0],[900,0,0]],colors.centerline,.8,.5);
     const objects=[];
-    const line=(points,color,width=2,alpha=1)=>objects.push({depth:points.reduce((sum,p)=>sum+project(p)[2],0)/points.length,render:()=>drawLine(points,color,width,alpha)});
+    const line=(points,color,width=2,alpha=1,dash=[])=>objects.push({depth:points.reduce((sum,p)=>sum+project(p)[2],0)/points.length,render:()=>drawLine(points,color,width,alpha,dash)});
     const checkedColor=id=>this.context?.highlightSegments?.has(id)?colors.interference:null;
     const point=(p,label,color=colors.point,radius=2.6)=>objects.push({depth:project(p)[2]+1,render:()=>{const [x,y]=project(p);c.beginPath();c.arc(x,y,radius,0,Math.PI*2);c.fillStyle=colors.pointFill;c.fill();c.strokeStyle=color;c.lineWidth=1.2;c.stroke();if(this.labels){c.fillStyle=colors.label;c.font='7px system-ui';c.fillText(label,x+5,y-5);}}});
     const ring=(p,axis,radius)=>{
@@ -107,7 +108,7 @@ export class SuspensionViewer {
       line(ring(p1,axis,radius),color,1.2,.75);line(ring(p2,axis,radius),color,1.2,.75);
       for(let i=0;i<8;i++) {const offset=add(scale(v,radius*Math.cos(i*Math.PI/4)),scale(u,radius*Math.sin(i*Math.PI/4)));line([add(p1,offset),add(p2,offset)],color,.7,.35);}
     };
-    for(const {side,points:p,wheelAxis,tire} of scene.corners) {
+    for(const {side,points:p,wheelAxis,tire,steeringAxis} of scene.corners) {
       const sideKey=side===-1?'left':'right';
       for(const [i,o] of linkPairs(a)) {
         const id=memberSegmentId(sideKey,'link',i,o),color=checkedColor(id)||(i==='tie_rod_inner'?colors.steering:colors.arm);
@@ -142,6 +143,13 @@ export class SuspensionViewer {
       line(ring(wc,wheelAxis,this.diameter*.28),colors.rim,1.2,.75);
       line([add(wc,scale(wheelAxis,-85)),add(wc,scale(wheelAxis,85))],colors.upright,1);
       for(const [key,value] of Object.entries(p))point(value,hardpointLabel(key));
+      if(this.showSteeringAxis&&steeringAxis.available) {
+        line([steeringAxis.lower,steeringAxis.upper],colors.steeringAxis,2.2,.95,[5,4]);
+        if(this.labels) {
+          const midpoint=scale(add(steeringAxis.lower,steeringAxis.upper),.5);
+          objects.push({depth:project(midpoint)[2]+2,render:()=>{const [x,y]=project(midpoint);c.fillStyle=colors.steeringAxis;c.font='9px system-ui';c.fillText(`${side===-1?'Left':'Right'} steering axis`,x+6,y-7);}});
+        }
+      }
     }
     for(const segment of scene.chassis)line(segment,colors.chassis,.8,.35);
     // ARB inputs describe static packaging only, independently of the solved upright.

@@ -65,6 +65,14 @@ Five-link suspension currently supports upright attachment only; an off-axis pic
 
 The rigid-body derivation, supplied-reference page comparisons, degeneracy checks, applicability limits and verification status are recorded in [ACTUATION-ATTACHMENT.md](docs/ACTUATION-ATTACHMENT.md). Attachment selection retains the existing front-origin editor adapter and axle-local storage/solver frame.
 
+## Steering axis in the suspension preview
+
+Use **Show steering axis** in the live preview to display the finite dashed segment between the current steering pivots. For double wishbones these are **LCA outer** and **UCA outer**. For the modeled conventional MacPherson arrangement they are **LCA outer** and **Strut top**, interpreted as the upper strut mounting/bearing center. The MacPherson steering axis can differ from the physical shaft line between **Strut bottom** and **Strut top**. The reference follows the solved points during rack, bump and heave motion. Five-link suspension has no defined two-pivot steering axis in the current schema, so no physical axis line is inferred. Degenerate or unavailable endpoints are omitted with an explanation.
+
+The wheel preview already uses the full solved three-dimensional upright rotation: its spindle is `n_solved = R(rotationVector) n_static`, and its tire plane is perpendicular to that spindle at the solved wheel center. It does not substitute a rotation about the vehicle's vertical Z axis. The new reference makes the actual pivot line visible without changing the mathematical solver, hardpoints or collision geometry. The positive-right steer readout is a heading projected onto the level road plane; it is not the upright's rotation-axis direction or one component of its rotation vector.
+
+When suspension travel and steering occur together, the pivot endpoints can move too. Their current connecting line is a steering-axis reference, not necessarily the single finite rotation axis of the entire displacement from the static pose. The derivation, source comparison and audit status are recorded in [STEERING-AXIS-PREVIEW.md](docs/STEERING-AXIS-PREVIEW.md).
+
 ## Appearance
 
 Use the **Dark mode** switch in the top bar to change the full workspace, including the 3D viewer. The switch supports keyboard activation and exposes its state to assistive technology. The app starts in light mode and remembers your explicit choice in this browser on this site. Theme preferences are separate from saved vehicle designs. If browser storage is unavailable, switching still works for the current page.
@@ -167,7 +175,7 @@ The upright has six pose unknowns: three translations and three rotation-vector 
 
 Newton iteration with numerical Jacobian, partial-pivot elimination, line search, and 4 mm continuation steps searches near the static assembly. A maximum constraint residual above 0.001 mm rejects the result. Heave travel controls accept magnitudes through 100 mm, the solver's stated bound; an impossible pose, singular linkage, or unreachable rocker is reported without inventing a result. The preview returns to static geometry on a failed solve.
 
-Camber and toe outputs are **changes from the static pose**, not absolute alignment angles. The static wheel axis is assumed lateral because the input schema does not yet specify wheel/upright orientation. Camber is positive top-outward; toe is positive inward on either side. Separate SAE steer angles are positive rightward about +Z. Forces, masses, compliance, tire contact, springs rates, damper curves, anti-roll-bar dynamics, hard stops, collision checks, motion-ratio curves, and dynamic integration are outside this first milestone. These generated hardpoints are illustrative design seeds, not optimized or validated vehicle geometry.
+Camber and toe outputs are **changes from the static pose**, not absolute alignment angles. The static wheel axis is assumed lateral because the input schema does not yet specify wheel/upright orientation. Camber is positive top-outward; toe is positive inward on either side. Separate SAE steer angles are positive-right wheel-plane headings projected onto the level road plane. Their sign agrees with positive yaw about +Z, but they do not impose a vertical steering axis. Forces, masses, compliance, tire contact, springs rates, damper curves, anti-roll-bar dynamics, hard stops, collision checks, motion-ratio curves, and dynamic integration are outside this first milestone. These generated hardpoints are illustrative design seeds, not optimized or validated vehicle geometry.
 
 ## CR26 provenance
 

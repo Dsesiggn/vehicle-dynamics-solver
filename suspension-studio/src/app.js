@@ -1,7 +1,8 @@
 import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.12';
 import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel,TIRE_TREAD_WIDTH_MAX,ACTUATION_ATTACHMENTS,getActuationAttachment} from './model.js?v=0.2.12';
 import {solveAxle} from './solver.js?v=0.2.12';
-import {SuspensionViewer} from './viewer.js?v=0.2.12';
+import {SuspensionViewer} from './viewer.js?v=0.2.13';
+import {steeringAxisGeometry} from './steering-axis.js?v=0.2.13';
 import {evaluateHardpointEdits} from './hardpoint-edits.js?v=0.2.12';
 import {axlePointToFront,frontPointToAxle} from './coordinate-frames.js?v=0.2.11';
 import {ARB_POINTS,newAntiRollBar,arbComplete,arbPreviewGeometry} from './arb.js?v=0.2.7';
@@ -105,7 +106,12 @@ function update() {
   const heaveCurrent=!errors.length&&!invalidField&&Number.isFinite(linkOD)&&linkOD>0?evaluateHeavePosition({axle:a,design,activeAxle:active,travel:heavePosition}):null;
   const result=heavePreviewActive&&heaveCurrent?.ok?heaveCurrent.solved:kinematicResult;
   const highlightSegments=heavePreviewActive&&heaveCurrent?.ok?new Set(heaveCurrent.contacts.flatMap(item=>item.memberIds)):new Set();
+  const axis=steeringAxisGeometry(a.topology,result?.ok?result.left.points:a.hardpoints),axisShown=$('show-steering-axis').checked;
+  viewer.showSteeringAxis=axisShown;
   viewer.update(a,design.wheelDiameter,result,{obstacles:design.obstacles||{},activeAxle:active,wheelbase:design.wheelbase,linkOD,highlightSegments});
+  $('show-steering-axis').disabled=!axis.available;
+  $('steering-axis-legend').hidden=!axis.available||!axisShown;
+  $('steering-axis-note').textContent=!axis.available?axis.reason:`${axisShown?'Dashed steering axis':'Steering axis hidden'}: ${axis.definition}.${a.topology==='macpherson'?' The strut shaft is shown separately and can have a different direction.':''} The axis follows the current joints; wheels use the full 3D upright rotation.${result&&!result.ok?' Motion unavailable; showing the static reference.':''}`;
   $('interference-legend').hidden=!highlightSegments.size;
   $('run-heave-check').disabled=errors.length>0||invalidField||!Number.isFinite(linkOD)||linkOD<=0;
   $('fit-all').setAttribute('aria-pressed',String(viewer.fitMode));if(viewer.fitMode)document.querySelectorAll('[data-view]').forEach(button=>button.setAttribute('aria-pressed','false'));
@@ -289,6 +295,7 @@ $('reset-motion').addEventListener('click',()=>{resetMotion();update();});
 for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{viewer.view(button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b===button));$('fit-all').setAttribute('aria-pressed','false');});
 $('fit-all').addEventListener('click',()=>{viewer.fitAll();$('fit-all').setAttribute('aria-pressed','true');document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed','false'));});
 $('reset-view').addEventListener('click',()=>{viewer.view('iso');document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view==='iso'));$('fit-all').setAttribute('aria-pressed','false');});
+$('show-steering-axis').addEventListener('change',update);
 $('show-labels').addEventListener('change',()=>{viewer.labels=$('show-labels').checked;viewer.draw();});
 function load(d) {
   let imported;try{imported=importDesign(d);}catch(error){$('library-error').textContent=error.message;return;}

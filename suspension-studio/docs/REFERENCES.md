@@ -48,6 +48,18 @@ Two further source-definition issues remain explicit. **Gillespie radius ambigui
 
 This comparison provides source and geometric consistency within the stated model. It supplies no measured-vehicle validation. Real-vehicle validation still requires surveyed hardpoints, rack travel/gain and measured left/right steer sweeps at the specified ride position, with their measurement uncertainties.
 
+## Suspension steering-axis preview audit
+
+The [steering-axis preview method](STEERING-AXIS-PREVIEW.md) distinguishes the geometric steering pivots, the physical MacPherson strut shaft, and the wheel's complete solved rotation. Complete relevant pages were visually inspected on 2026-10-29:
+
+- **MILLIKEN**, Chapter 17 §17.5, printed pp.632–635 / PDF pp.336–337, especially printed p.633 and Fig.17.22: the upper strut mount lies on the MacPherson steering axis while the strut shaft need not coincide with that axis. Chapter 19 §19.1, printed pp.709–711 / PDF pp.374–375, identifies the double-wishbone upper/lower ball-joint steering axis and inclined-axis wheel effects.
+- **SEWARD**, Chapter 6 §§6.2.1–6.2.2, printed pp.156–157 / PDF pp.167–168, Figs.6.2–6.3: front- and side-view steering-axis definitions pass through the upper/lower outer ball joints; inclined steering can change camber and wheel height.
+- **HAYNES-SUSPENSION / STANIFORTH**, “King Pin Inclination” and “Caster Angle,” printed pp.107–108 / PDF pp.97–98: separated modern upright pivots replace the historical kingpin, with their connecting line defining the axis. “MacPherson Strut,” printed p.66 / PDF p.56, describes the sliding architecture without asserting that its shaft and steering axes coincide.
+- **GILLESPIE**, Chapter 7, printed pp.243–244 / PDF pp.259–260: telescopic-strut architecture combines an upper chassis mount with lower links. This is compatible with the top-mount/lower-ball definition but does not independently establish shaft/steering-axis equivalence.
+- **SMITH**, Chapter 4, printed pp.41–42 / PDF pp.40–41: strut packaging and compliance discussion supplies no opposing precise axis definition in the reviewed passage. It is not used as proof of an axis equation.
+
+Seward, Staniforth and Milliken agree on the double-wishbone pivot line; Milliken provides the precise MacPherson distinction. No governing contradiction was found in these passages. This focused review does not imply an exhaustive review of any book. Pacejka is not used for this rigid-geometry display; no tire-force model or sourced scalar angle formula is introduced. The project derives the finite rotation and connecting segment from its existing SAE XYZ inputs, so no new source-to-project scalar sign conversion is required. The existing preview already uses the solved Rodrigues rotation and spindle direction rather than a vehicle-Z yaw substitution. The new checkbox displays the current finite joint-to-joint segment, with undefined/degenerate geometry omitted, and leaves the mathematical suspension solve unchanged. A five-link virtual steering axis is outside this two-pivot reference construction. Numerical, browser and physical-validation status are recorded separately in the method document.
+
 ## Using this library for a new module
 
 1. Identify the governing model and read the relevant passages in the supplied references. Record source ID, edition if verified, chapter/section, printed page, and PDF page; distinguish an original derivation from a sourced equation. Continue checking the other relevant supplied sources after finding a suitable method. Record which passages were actually inspected and which resources or sections were not applicable, unavailable or not yet checked; do not imply an exhaustive review.
