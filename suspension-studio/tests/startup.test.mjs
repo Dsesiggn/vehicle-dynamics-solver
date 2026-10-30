@@ -95,8 +95,9 @@ test('file: opening explains HTTP setup before imports, browser API checks, or s
   assert.match(indexSource, /id="studio-workspace" inert/);
   assert.match(result.elements.get('startup-title').textContent, /web address/);
   assert.match(result.elements.get('startup-message').textContent, /JavaScript modules/);
-  assert.match(result.elements.get('startup-help').textContent, /python3 -m http\.server 8766 --bind 127\.0\.0\.1/);
-  assert.match(helpMarkup, /href="http:\/\/127\.0\.0\.1:8766\/suspension-studio\/"/);
+  assert.match(result.elements.get('startup-help').textContent, /python3 setup_hybrid\.py/);
+  assert.match(result.elements.get('startup-help').textContent, /\.venv-hybrid\/bin\/python run_hybrid\.py/);
+  assert.match(helpMarkup, /href="http:\/\/127\.0\.0\.1:8767\/suspension-studio\/"/);
   assert.equal(result.elements.get('startup-details').hidden, true);
   assert.equal(result.elements.get('startup-error').textContent, '');
   assert.equal(result.accesses.capabilities, 0);

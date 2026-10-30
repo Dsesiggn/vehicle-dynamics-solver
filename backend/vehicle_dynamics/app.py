@@ -15,6 +15,8 @@ from .models.ackermann import calculate_ackermann
 from .schemas import AckermannRequest, AckermannResponse
 from .models.steering import solve_steering, sweep_steering
 from .models.steering_geometry import steering_construction
+from .models.kinematics import sweep_kinematics
+from .kinematics_schemas import KinematicsSweepRequest
 from .steering_schemas import (
     SteeringSolveRequest, SteeringSolveResponse,
     SteeringSweepRequest, SteeringSweepResponse,
@@ -45,9 +47,9 @@ def deployment_source():
 def create_app(frontend: Path = FRONTEND) -> FastAPI:
     source_commit, source_commit_source = deployment_source()
     app = FastAPI(
-        title="Vehicle Dynamics Engineering API", version="0.2.0",
+        title="Vehicle Dynamics Engineering API", version="0.3.0",
         docs_url=None, redoc_url=None, openapi_url="/api/v1/openapi.json",
-        description="Fixed-axis rack steering kinematics and nominal ideal zero-slip Ackermann geometry.",
+        description="Rigid-body suspension travel sweeps, fixed-axis rack steering, and nominal ideal zero-slip Ackermann geometry.",
     )
 
     @app.middleware("http")
@@ -75,7 +77,7 @@ def create_app(frontend: Path = FRONTEND) -> FastAPI:
 
     @app.get("/api/v1/health")
     def health():
-        return {"status": "ok", "models": ["ideal_ackermann_v1", "fixed_axis_steering_v1"],
+        return {"status": "ok", "models": ["ideal_ackermann_v1", "fixed_axis_steering_v1", "rigid_suspension_v1"],
                 "numpy": numpy.__version__, "scipy": scipy.__version__,
                 "source_commit": source_commit, "source_commit_source": source_commit_source}
 
@@ -101,6 +103,10 @@ def create_app(frontend: Path = FRONTEND) -> FastAPI:
         return SteeringSweepResponse(rows=[with_construction(design, result)
                                             for result in sweep_steering(design)])
 
+    @app.post("/api/v1/kinematics/sweep")
+    def kinematics_sweep(request: KinematicsSweepRequest):
+        return sweep_kinematics(request.design.model_dump(), request.sweep.model_dump())
+
     @app.get("/", include_in_schema=False)
     def home():
         return RedirectResponse("/suspension-studio/engineering.html")
@@ -123,7 +129,7 @@ def create_app(frontend: Path = FRONTEND) -> FastAPI:
 
     @app.get("/suspension-studio/docs/{document}", include_in_schema=False)
     def method_document(document: str):
-        if document not in {"STEERING.md", "COORDINATES.md", "INTERFERENCE.md", "TIRE-TREAD.md"}:
+        if document not in {"STEERING.md", "COORDINATES.md", "INTERFERENCE.md", "TIRE-TREAD.md", "KINEMATICS-DASHBOARD.md", "KINEMATICS-SOLVER.md", "KINEMATICS-REFERENCE-REVIEW.md", "KINEMATICS-CHANNELS.md", "KINEMATICS-ANTI-EFFECTS.md", "KINEMATICS-ARB.md"}:
             raise HTTPException(status_code=404)
         return FileResponse(frontend / "docs" / document, media_type="text/plain; charset=utf-8")
 

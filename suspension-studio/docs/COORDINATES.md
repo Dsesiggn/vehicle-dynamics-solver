@@ -118,3 +118,22 @@ Regression checks cover the coordinate transform, migration, left/right steering
 The front-origin editor translation follows the Euclidean identity `P_front = P_local + O_axle`, with `O_front = [0,0,0]` and `O_rear = [−L,0,0]`. For any two positions in the same translated frame, `(P₂ + O) − (P₁ + O) = P₂ − P₁`; therefore link lengths, angles and the existing local solver constraints are unchanged. This is a project frame-adapter derivation, not a new vehicle-dynamics equation attributed to a reference book. Relevant verification checks are front identity, rear forward/inverse conversion, distance preservation, unchanged unknown components, import/export compatibility, and consistent placement of solved points, ARBs and obstacles. A mathematical translation identity does not establish surveyed-vehicle accuracy.
 
 Verification on 2026-10-27: all 201 Node tests passed, including 14 additional frame/editor/viewer checks. Browser checks covered front X = 0 and rear X = −1530 at a 1530 mm wheelbase, rear decimal entry, a wheelbase change to 1600 mm, nullable ARB inputs, obstacle anchor changes that preserve front-frame position, invalid-entry retention, saved-design reload, an older v2 design, and a solved rear bump pose. Downloaded JSON retained `AXLE_LOCAL` metadata and the expected local hardpoint, ARB and obstacle coordinates. These checks establish software and coordinate consistency for the checked cases, not measured suspension accuracy.
+
+## Optional v2 kinematics settings
+
+`kinematics` adds nullable per-axle static camber/toe-in (degrees), a rocker-axis
+**direction vector** through the existing pivot, explicit anti-effect torque
+reactions and an ARB model/carrier choice. Unknowns remain null. The rig reference
+X/Y is in the **shared front-origin frame**, distinct from stored axle-local
+hardpoints. CG height is a positive scalar above the nominal static ground;
+force fractions are dimensionless. Existing geometry is unchanged on import.
+
+Dashboard bump b is upward and satisfies `Cz = Cz_static − b`. Pitch/roll are
+travel-plane slope commands, not actual chassis attitude. Their exact formula,
+units and signs are in [KINEMATICS-DASHBOARD.md](KINEMATICS-DASHBOARD.md).
+The Python pose response is axle-local; scalar position channels and the preview
+are translated to the front frame once. Rotations and unit spindles are never
+translated. Alignment and all plotted derivatives identify their convention;
+positive toe-in and `dc/db` must not be silently compared to opposite/reciprocal
+vendor definitions. Original v1 files cannot contain this v2-only extension:
+such mixed-schema files are rejected rather than relabeled without conversion.

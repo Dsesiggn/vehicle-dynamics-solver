@@ -1,32 +1,32 @@
 # Suspension Studio
 
-A suspension design workspace with a Python steering engine. The original root applications are preserved. This app is a foundation for a vehicle dynamics application, not a complete vehicle dynamics simulator.
+A suspension design workspace with a Python suspension and steering engine. The original root applications are preserved. This app is a foundation for a vehicle dynamics application, not a complete vehicle dynamics simulator.
 
 ## Run
 
 For a computer where Python cannot be installed, open the hosted
 [Suspension Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/)
 or [Steering Studio](https://vehicle-dynamics-studio.onrender.com/suspension-studio/steering.html).
-Both use the same deployed application; steering calculations run on the server.
+Both use the same deployed application; kinematics calculations run on the server.
 See [browser-only deployment](../docs/WEB_DEPLOYMENT.md) for updates, version checks,
-and transferring designs. GitHub Pages alone cannot run the steering backend.
+and transferring designs. GitHub Pages alone cannot run the Python backend.
 
-For the steering linkage tool and engineering workbench, run the Python service from the repository root:
+For the complete suspension dashboard, steering tool and engineering workbench, run the Python service from the repository root:
 
 ```sh
 python3 setup_hybrid.py
 .venv-hybrid/bin/python run_hybrid.py --open
 ```
 
-Setup is needed once. Open `http://127.0.0.1:8767/suspension-studio/steering.html` for steering. The service calculates the wheel poses, 5° sweep and construction geometry; no JavaScript calculation fallback runs if it is unavailable. See [the hybrid quickstart](../docs/HYBRID_QUICKSTART.md) and [steering backend contract](../docs/STEERING_BACKEND.md).
+Setup is needed once. Open `http://127.0.0.1:8767/suspension-studio/` for suspension, or `http://127.0.0.1:8767/suspension-studio/steering.html` for steering. The service calculates the wheel poses, 5° sweep and construction geometry; no JavaScript calculation fallback runs if it is unavailable. See [the hybrid quickstart](../docs/HYBRID_QUICKSTART.md) and [steering backend contract](../docs/STEERING_BACKEND.md).
 
-The suspension editor still supports a static server:
+The editor and legacy single-axle preview also work on a static server, but **Explore kinematics requires the Python service**:
 
 ```sh
 python3 -m http.server 8766 --bind 127.0.0.1
 ```
 
-Open http://127.0.0.1:8766/suspension-studio/ in a modern browser and keep Terminal running. Or open [the hosted suspension editor](https://dsesiggn.github.io/vehicle-dynamics-solver/suspension-studio/), which needs no local server. The static suspension editor needs no package installation or build step; static hosting cannot execute the Python steering engine.
+Open http://127.0.0.1:8766/suspension-studio/ in a modern browser and keep Terminal running. Or open [the hosted suspension editor](https://dsesiggn.github.io/vehicle-dynamics-solver/suspension-studio/), which needs no local server. The static suspension editor needs no package installation or build step; static hosting cannot execute the Python kinematics engine.
 
 ES modules require HTTP/HTTPS; opening `index.html` directly with a `file://` address is not supported. The startup screen now explains this and links to the hosted app and local setup. It prevents editing an uninitialized workspace. HTTP startup also reports missing required browser features or module-load errors instead of leaving a silent blank viewer. Browser requirements include Canvas 2D, native dialogs, ResizeObserver, structuredClone, and Object.hasOwn. The source of the file-origin restriction is [MDN’s JavaScript modules guide](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules#other_differences_between_modules_and_classic_scripts).
 
@@ -38,10 +38,20 @@ Saved libraries belong to the browser and web origin. The hosted app and a local
 2. Set vehicle dimensions, then independently configure the front and rear axles.
 3. Choose double wishbone, MacPherson, or five-link suspension. Pushrod and pullrod require a bell crank; direct actuation uses direct mounting. For each double-wishbone axle, choose whether the outer actuation pickup belongs to the upright, lower wishbone or upper wishbone. MacPherson requires a direct strut.
 4. Open **Define hardpoints** to edit the generated geometry. Changes to topology or actuation regenerate that axle, with confirmation for customized geometry.
-5. Open **Explore kinematics** to solve wheel bump and rack displacement. The preview shows the solved axle, or the static geometry with an explicit failure message when no solution is found.
-6. Enter compression/rebound magnitudes and the shared link OD in **Heave interference check**. The default travel is 25.4 mm in each direction; the shared OD is blank until entered. Run the full sweep, then use the travel slider or a listed event to inspect the solved pose and colliding members.
+5. Open **Explore kinematics**, enter measured static alignment and rocker-axis directions for each axle, choose heave/pitch/roll/steering, set the sweep range, and select **Run sweep**. Pitch and roll require an explicit travel reference. Inspect calculated poses with the sample slider; filter graph families or select another channel for the horizontal axis. Export the full result to CSV. Missing measurements leave dependent channels unavailable with reasons.
+6. Expand **Single-axle motion preview and heave interference check** for the retained browser-based checker. Enter compression/rebound magnitudes and the shared link OD in **Heave interference check**. The default travel is 25.4 mm in each direction; the shared OD is blank until entered. Run the full sweep, then use the travel slider or a listed event to inspect the solved pose and colliding members.
 7. Optionally enter engine, differential, and cockpit packaging envelopes. Check **Show in preview** to draw a translucent static shape; complete visible shapes also enter the heave clearance check. Use **Fit all** to frame the suspension and visible envelopes.
-8. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Suspension calculations remain in the browser; steering designs are sent to the same-origin Python service for calculation and are not stored there.
+8. Save named designs in browser storage or export/import versioned JSON. Saving an existing name updates that saved design. Dashboard and steering designs are sent to the same-origin Python service for calculation and are not stored there. The separately labeled legacy single-axle/interference checker remains browser-based.
+
+## Python kinematics dashboard
+
+Heave, pitch and roll prescribe wheel-center travel with the chassis fixed; steering prescribes rack travel at zero bump. This is a rigid suspension rig model, not a body-on-flat-road simulation. Static camber/toe and rocker-axis directions remain unknown until entered or explicitly selected. Generated geometry and the zero-alignment/longitudinal-axis buttons are test/design choices, not CR26 measurements.
+
+The dashboard includes camber/toe and their gains, damper displacement and instantaneous `dc/db`, spatial roll/pitch centers, roll-axis inclination, physical steering-axis geometry, track/wheelbase and hardpoint trajectories, and nominal Ackermann comparisons. Additional inputs enable geometric anti-dive/squat/lift and a declared straight transverse U-bar's arm angles, twist and sensitivities. Use **All graph families** or a specific family to inspect the full channel set; the default performance dashboard focuses on 18 plot groups. CSV contains every channel with units, null gaps and metadata. One horizontal channel selector supports cross-plots such as lateral roll-center position against height.
+
+Per-axle ARB motion requires its three geometry points, an explicitly selected straight transverse shaft model and its pickup carrier. A complete bearing must lie on the shaft. The legacy static preview remains available without these choices. Five-link virtual steering-axis caster/KPI/trail/scrub and force/compliance outputs are explicitly unavailable; no physical axis or force equilibrium is guessed.
+
+Read the [governing equations and rig conventions](docs/KINEMATICS-DASHBOARD.md), [rigid-pose derivation](docs/KINEMATICS-SOLVER.md), [reference comparisons](docs/KINEMATICS-REFERENCE-REVIEW.md), [channel coverage](docs/KINEMATICS-CHANNELS.md), [anti-effects](docs/KINEMATICS-ANTI-EFFECTS.md), and [U-bar model](docs/KINEMATICS-ARB.md). Software verification is distinct from measured-vehicle validation. No current OptimumKinematics equivalence is claimed.
 
 ## Hardpoint editing and live preview
 
@@ -164,7 +174,9 @@ The rack-offset editor sets the rack midpoint's longitudinal X relative to the f
 
 The application does not execute or reinterpret the legacy dashboard, tire scripts, or Python renderer.
 
-## Kinematic formulation
+## Legacy single-axle kinematic formulation
+
+This section describes only the retained browser preview/interference solver. The new Python dashboard uses the formulation and stricter checks linked above.
 
 The upright has six pose unknowns: three translations and three rotation-vector components. Rodrigues' formula rotates points rigidly attached to that upright. A wishbone-mounted actuation pickup is transported separately with its selected arm, using the actual fore–aft pivot line and solved outer ball joint. Rotation parameters in the upright solve are scaled to a 300 mm characteristic length to improve conditioning.
 
@@ -187,4 +199,4 @@ The six supplied vehicle dynamics books are cataloged in [the reference library]
 
 ## Next development milestones
 
-Add absolute alignment and wheel orientation; extend attachment support to explicitly oriented independent links; support arbitrary rocker axes and multi-body joints; introduce full-vehicle assembly and validated travel sweeps; then connect tire, spring, damper, mass/inertia and load models through explicit module contracts.
+Validate against measured suspension motion and independent reference data; extend virtual steering-axis outputs for five-link geometry and explicitly oriented independent-link pickups; then connect tire, spring, damper, mass/inertia and load models through explicit contracts.

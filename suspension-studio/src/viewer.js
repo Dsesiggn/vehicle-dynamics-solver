@@ -17,10 +17,24 @@ export function suspensionPreviewGeometry(a,diameter,motion,context) {
     const local=solved?.points||Object.fromEntries(Object.entries(a.hardpoints).map(([key,value])=>[key,side===-1?value:mirrorPoint(value)]));
     const points=Object.fromEntries(Object.entries(local).map(([key,value])=>[key,toFront(value)]));
     // Translation changes positions, never the wheel-axis direction or rotation.
-    const wheelAxis=rotate([0,side,0],solved?.rotation||[0,0,0]);
-    return {side,points,wheelAxis,tire:tireTreadGeometry(points.wheel_center,wheelAxis,diameter,a.tireTreadWidth??null),steeringAxis:steeringAxisGeometry(a.topology,points)};
+    const wheelAxis=solved?.spindle?.length===3&&solved.spindle.every(Number.isFinite)?[...solved.spindle]:rotate([0,side,0],solved?.rotation||[0,0,0]);
+    return {side,points,wheelAxis,actuatorAvailable:solved?.actuator?.ok!==false,tire:tireTreadGeometry(points.wheel_center,wheelAxis,diameter,a.tireTreadWidth??null),steeringAxis:steeringAxisGeometry(a.topology,points)};
   });
   const localArb=arbPreviewGeometry(a.antiRollBar);
+  const dynamicArb=motion?.ok&&motion.left?.arb?.available&&motion.right?.arb?.available;
+  if(dynamicArb) {
+    const left=motion.left.arb,right=motion.right.arb;
+    localArb.points=localArb.points.map(item=>{
+      const corner=item.side==='Left'?left:right;
+      const replacement={bend:corner.bend,arm_tip:corner.tip,link_pickup:corner.pickup}[item.key];
+      return {...item,position:replacement||item.position};
+    });
+    localArb.segments=[
+      {kind:'bar',start:left.tip,end:left.bend},{kind:'bar',start:left.bend,end:right.bend},
+      {kind:'bar',start:right.bend,end:right.tip},{kind:'drop-link',start:left.tip,end:left.pickup},
+      {kind:'drop-link',start:right.tip,end:right.pickup},
+    ];
+  }
   const arb={...localArb,
     points:localArb.points.map(item=>({...item,position:toFront(item.position)})),
     segments:localArb.segments.map(item=>({...item,start:toFront(item.start),end:toFront(item.end)})),
@@ -108,7 +122,7 @@ export class SuspensionViewer {
       line(ring(p1,axis,radius),color,1.2,.75);line(ring(p2,axis,radius),color,1.2,.75);
       for(let i=0;i<8;i++) {const offset=add(scale(v,radius*Math.cos(i*Math.PI/4)),scale(u,radius*Math.sin(i*Math.PI/4)));line([add(p1,offset),add(p2,offset)],color,.7,.35);}
     };
-    for(const {side,points:p,wheelAxis,tire,steeringAxis} of scene.corners) {
+    for(const {side,points:p,wheelAxis,tire,steeringAxis,actuatorAvailable} of scene.corners) {
       const sideKey=side===-1?'left':'right';
       for(const [i,o] of linkPairs(a)) {
         const id=memberSegmentId(sideKey,'link',i,o),color=checkedColor(id)||(i==='tie_rod_inner'?colors.steering:colors.arm);
@@ -117,6 +131,7 @@ export class SuspensionViewer {
       const upright=Object.entries(p).filter(([k])=>isMoving(k)&&k!=='wheel_center'&&k!=='actuation_outer').map(([,v])=>v);
       for(const v of upright)line([v,p.wheel_center],colors.upright,1.4,.6);
       if(a.topology==='double-wishbone') {line([p.uca_front,p.uca_rear],colors.arm,1,.4);line([p.lca_front,p.lca_rear],colors.arm,1,.4);}
+      if(actuatorAvailable) {
       let damperStart,damperEnd;
       let damperId;
       if(a.topology==='macpherson'){damperStart=p.strut_top;damperEnd=p.strut_bottom;damperId=memberSegmentId(sideKey,'damper','strut_top','strut_bottom');}
@@ -135,6 +150,7 @@ export class SuspensionViewer {
       const axis=unit(sub(damperEnd,damperStart)),v=unit(cross(axis,Math.abs(axis[0])>.9?[0,1,0]:[1,0,0])),u=cross(axis,v);
       const helix=Array.from({length:161},(_,i)=>{const t=i/160;return add(add(damperStart,scale(sub(damperEnd,damperStart),.12+.7*t)),add(scale(v,a.springOD/2*Math.cos(t*Math.PI*16)),scale(u,a.springOD/2*Math.sin(t*Math.PI*16))));});
       line(helix,colors.actuator,1.4);
+      }
       const wc=p.wheel_center;
       // Use the known axis even if a very small positive width rounds the edge centers together.
       if(tire?.widthKnown)cylinder(...tire.edgeCenters,tire.radius,colors.tire,tire.axis);
@@ -142,7 +158,7 @@ export class SuspensionViewer {
       // The existing concentric rim cue is illustrative, without an inferred rim width.
       line(ring(wc,wheelAxis,this.diameter*.28),colors.rim,1.2,.75);
       line([add(wc,scale(wheelAxis,-85)),add(wc,scale(wheelAxis,85))],colors.upright,1);
-      for(const [key,value] of Object.entries(p))point(value,hardpointLabel(key));
+      for(const [key,value] of Object.entries(p))if(actuatorAvailable||!['rocker_rod','rocker_damper'].includes(key))point(value,hardpointLabel(key));
       if(this.showSteeringAxis&&steeringAxis.available) {
         line([steeringAxis.lower,steeringAxis.upper],colors.steeringAxis,2.2,.95,[5,4]);
         if(this.labels) {

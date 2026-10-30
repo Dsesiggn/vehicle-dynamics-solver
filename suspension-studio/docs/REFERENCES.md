@@ -109,3 +109,25 @@ The optional tire tread-width preview uses original Euclidean circle/band geomet
 ## Local source lookup
 
 The supplied PDFs are in the user's `CR.FSAE/Literature` directory. Match by the book titles above. Do not copy that directory into the app or include it in an upload. On another machine, request the needed source if it is unavailable rather than claiming it was checked.
+
+## Python suspension dashboard source audit
+
+The actual passages inspected, definitions compared, unresolved applicability
+limits and original derivations for this module are recorded in:
+
+- [KINEMATICS-REFERENCE-REVIEW.md](KINEMATICS-REFERENCE-REVIEW.md): Milliken,
+  Gillespie, Seward, Smith, Staniforth and Pacejka review scope; motion-ratio
+  conventions, spatial instantaneous motion and geometric versus force centers.
+- [KINEMATICS-SOLVER.md](KINEMATICS-SOLVER.md): finite rigid-pose constraints,
+  analytic Jacobian, continuation and attachment/rocker transport.
+- [KINEMATICS-ANTI-EFFECTS.md](KINEMATICS-ANTI-EFFECTS.md): full-page comparison
+  of Milliken Ch17, Seward Ch3 and Gillespie Ch7, and original spatial virtual work.
+- [KINEMATICS-ARB.md](KINEMATICS-ARB.md): declared straight transverse geometry,
+  carrier selection, constant drop-link closure and exact derivative.
+- [KINEMATICS-CHANNELS.md](KINEMATICS-CHANNELS.md): inspected official manual
+  pages, different toe/MR/Ackermann definitions and implemented family coverage.
+
+The earlier ARB paragraphs describe static preview only. The optional dynamic
+model requires explicit selection and inputs; it does not infer the carrier or
+bearing geometry from a three-point drawing. Source review is separate from
+numerical tests and does not establish measured CR26 accuracy.

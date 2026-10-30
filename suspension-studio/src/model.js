@@ -1,4 +1,5 @@
 /** Canonical schema v2: SAE J670 Z-down; axle-local hardpoints in mm. */
+import {validateKinematicsSettings} from './kinematics-settings.js?v=0.3.0';
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
 import { validateAntiRollBar } from './arb.js?v=0.2.3';
 import { newObstacles, validateObstacles } from './obstacles.js?v=0.2.5';
@@ -95,6 +96,7 @@ export function validateDesign(d) {
     }
   }
   errors.push(...validateObstacles(d.obstacles));
+  errors.push(...validateKinematicsSettings(d.kinematics));
   for (const key of ['front','rear']) {
     const a = d.axles[key]; if (!a || !Object.hasOwn(TOPOLOGIES,a.topology)) { errors.push(`${key}: invalid topology.`); continue; }
     errors.push(...validateAntiRollBar(a.antiRollBar).map(error => `${key}: ${error}`));

@@ -9,6 +9,7 @@ export function importDesign(value) {
       throw Error('Ambiguous version 1 coordinate metadata. Import an original Studio v1 file or a complete v2 file.');
     }
     if (Object.hasOwn(design, 'obstacles')) throw Error('Version 1 files do not support obstacle geometry. Import the original suspension, then add packaging envelopes in SAE coordinates.');
+    if (Object.hasOwn(design, 'kinematics')) throw Error('Version 1 files do not define the coordinate meaning of kinematics settings. Import the original geometry and enter the new analysis inputs.');
     for (const a of Object.values(design.axles || {})) {
       if (a && Object.hasOwn(a, 'antiRollBar')) throw Error('Version 1 files do not support ARB points. Import the original suspension, then enter ARB points in SAE coordinates.');
       if (!a?.hardpoints || typeof a.hardpoints !== 'object') throw Error('Version 1 design has missing hardpoints.');

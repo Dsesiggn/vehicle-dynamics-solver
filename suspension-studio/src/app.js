@@ -1,7 +1,8 @@
-import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.12';
-import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel,TIRE_TREAD_WIDTH_MAX,ACTUATION_ATTACHMENTS,getActuationAttachment} from './model.js?v=0.2.12';
+import {createKinematicsDashboard} from './kinematics-dashboard.js?v=0.3.0';
+import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.3.0';
+import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel,TIRE_TREAD_WIDTH_MAX,ACTUATION_ATTACHMENTS,getActuationAttachment} from './model.js?v=0.3.0';
 import {solveAxle} from './solver.js?v=0.2.12';
-import {SuspensionViewer} from './viewer.js?v=0.2.13';
+import {SuspensionViewer} from './viewer.js?v=0.3.0';
 import {steeringAxisGeometry} from './steering-axis.js?v=0.2.13';
 import {evaluateHardpointEdits} from './hardpoint-edits.js?v=0.2.12';
 import {axlePointToFront,frontPointToAxle} from './coordinate-frames.js?v=0.2.11';
@@ -17,6 +18,20 @@ try {
   if(rejected.length)libraryNotice+=` ${rejected.length} unreadable design(s) retained in storage but cannot be opened.`;
 } catch { storageReadable=false;libraryNotice='Saved library could not be read. Export JSON to keep new work; the stored library will not be overwritten.'; }
 const viewer=new SuspensionViewer($('scene'));
+const viewerPanel=document.querySelector('.viewer-panel'), previewColumn=document.querySelector('.preview-column');
+let exploring=false;
+const dashboard=createKinematicsDashboard($('kinematics-dashboard'),{
+  getDesign:()=>design,
+  onSettingsChange:settings=>{design.kinematics=settings;markDirty();update();},
+  onInputsEdited:()=>markDirty(),
+  onPoseChange:()=>{$('legacy-motion').open=false;update();},
+  onAxleChange:axle=>{active=axle;fields();update();},
+});
+function leaveDashboard() {
+  exploring=false;document.querySelector('main').classList.remove('exploring-kinematics');
+  previewColumn.prepend(viewerPanel);$('kinematics-panel').hidden=true;$('kinematics-step').classList.remove('current');
+}
+$('legacy-motion').addEventListener('toggle',()=>{if(exploring)update();});
 document.addEventListener('studio-theme-change',()=>viewer.draw());
 const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const inputFrame={frame:'FRONT_AXLE'};
@@ -97,15 +112,18 @@ function update() {
     const evaluation=evaluateHardpointEdits(design,axle,hardpointDrafts[axle],inputFrame);
     return `${title(axle)} hardpoint edits not applied: ${evaluation.errors.join(' ')||'Finish the entry in the hardpoint editor or discard the unaccepted edits.'}`;
   });
-  const invalidInput=[...document.querySelectorAll('input[type=number]')].find(input=>!input.disabled&&(!(input.dataset.arbPoint||input.dataset.obstacleField||input.dataset.linkOd||input.dataset.tireWidth)&&input.value===''||!input.checkValidity()));
-  const invalidField=!!invalidInput||pendingAxles.length>0,invalidInputLabel=invalidInput?(invalidInput.getAttribute('aria-label')||title(invalidInput.id||'numeric input')):'';
-  const inputIssue=pendingIssues.length?pendingIssues.join(' '):invalidInput?`Enter a valid number for ${invalidInputLabel} before solving motion.`:'';
+  const invalidInput=[...document.querySelectorAll('input[type=number]')].find(input=>!input.disabled&&(input.dataset.kinematicsInput?(input.dataset.kinSetting&&!input.checkValidity()):(!(input.dataset.arbPoint||input.dataset.obstacleField||input.dataset.linkOd||input.dataset.tireWidth)&&input.value===''||!input.checkValidity())));
+  const invalidField=!!invalidInput||pendingAxles.length>0||dashboard.hasPendingInputs(),invalidInputLabel=invalidInput?(invalidInput.getAttribute('aria-label')||title(invalidInput.id||'numeric input')):'';
+  const inputIssue=pendingIssues.length?pendingIssues.join(' '):invalidInput?`Enter a valid number for ${invalidInputLabel} before solving motion.`:dashboard.hasPendingInputs()?'Correct or discard unaccepted kinematics model inputs before saving or solving.':'';
   if(invalidField)lastHeaveScan=null;
-  const kinematicResult=errors.length||invalidField?null:solveAxle(a,bump,rack);
+  dashboard.sync({valid:!errors.length&&!invalidField,activeAxle:active});
+  const dashboardPose=exploring&&!$('legacy-motion').open?dashboard.getPose(active):null;
+  const pythonPreview=exploring&&!$('legacy-motion').open;
+  const kinematicResult=errors.length||invalidField||pythonPreview?null:solveAxle(a,bump,rack);
   const linkOD=design.interference?.linkOD;
   const heaveCurrent=!errors.length&&!invalidField&&Number.isFinite(linkOD)&&linkOD>0?evaluateHeavePosition({axle:a,design,activeAxle:active,travel:heavePosition}):null;
-  const result=heavePreviewActive&&heaveCurrent?.ok?heaveCurrent.solved:kinematicResult;
-  const highlightSegments=heavePreviewActive&&heaveCurrent?.ok?new Set(heaveCurrent.contacts.flatMap(item=>item.memberIds)):new Set();
+  const result=pythonPreview?dashboardPose:(heavePreviewActive&&heaveCurrent?.ok?heaveCurrent.solved:kinematicResult);
+  const highlightSegments=!dashboardPose&&heavePreviewActive&&heaveCurrent?.ok?new Set(heaveCurrent.contacts.flatMap(item=>item.memberIds)):new Set();
   const axis=steeringAxisGeometry(a.topology,result?.ok?result.left.points:a.hardpoints),axisShown=$('show-steering-axis').checked;
   viewer.showSteeringAxis=axisShown;
   viewer.update(a,design.wheelDiameter,result,{obstacles:design.obstacles||{},activeAxle:active,wheelbase:design.wheelbase,linkOD,highlightSegments});
@@ -122,6 +140,16 @@ function update() {
   $('hardpoint-status').textContent=inputIssue||hardpointMessages[active]||'Enter coordinates to update the live preview. Incomplete or invalid entries stay editable until corrected.';
   $('hardpoint-frame-note').textContent=`All XYZ inputs use the front-axle ground origin. Front datum X = 0 mm; rear datum X = ${-design.wheelbase} mm. +X forward · +Y right · +Z down. Left-side Y and height above ground Z are negative.`;
   $('preview-frame-note').textContent=`Front-origin coordinates · Front datum [0, 0, 0] mm · Rear datum [${-design.wheelbase}, 0, 0] mm · Wheelbase ${design.wheelbase} mm. Only the selected axle suspension is shown.`;
+  if(pythonPreview&&!invalidField) {
+    const notes=[];
+    if(!dashboardPose)notes.push('Static reference. Run the Python sweep to calculate and inspect motion.');
+    else if(!dashboardPose.ok)notes.push('This axle has an unsolved corner at the selected sample. Showing the static reference.');
+    else {
+      if(dashboardPose.left.alignmentReference==='nominal-zero-static-alignment')notes.push('Static alignment is unknown: wheel circles use a nominal zero-alignment spindle for illustration. Alignment and contact-dependent graphs are unavailable.');
+      if(!dashboardPose.left.actuator.ok||!dashboardPose.right.actuator.ok)notes.push('Unresolved actuator geometry is hidden. Enter the rocker axis or review the reported closure failure.');
+    }
+    $('preview-input-status').hidden=!notes.length;$('preview-input-status').textContent=notes.join(' ');
+  }
   $('discard-hardpoint-edits').hidden=!hardpointDrafts[active];
   $('stat-track').innerHTML=`${a.track.toLocaleString(undefined,{maximumFractionDigits:1})} <span>mm</span>`;
   $('stat-points').textContent=Object.keys(a.hardpoints).length;$('stat-solver').textContent=TOPOLOGIES[a.topology].solver;
@@ -133,6 +161,11 @@ function update() {
   $('arb-legend').hidden=!arbPreview.points.length;
   $('arb-viewer-note').hidden=!arbEnabled;
   $('arb-viewer-note').textContent=arbReady?'U-bar ARB · static reference, including during bump and steering.':arbPreview.layoutComplete?'U-bar ARB · static bar and drop links. Bearing location unentered; no bearing marker inferred.':arbPreview.points.length?`U-bar ARB · partial static layout (${arbPreview.enteredPointCount}/4 left-side points). Unentered: ${arbPreview.missingLabels.join(', ')}. No missing geometry is inferred.`:'U-bar ARB · no complete XYZ points entered yet.';
+  const arbSolved=pythonPreview&&dashboardPose?.ok&&dashboardPose.left.arb?.available&&dashboardPose.right.arb?.available;
+  if(arbSolved) {
+    $('arb-viewer-note').textContent='U-bar ARB · solved rigid arms and drop links at the selected Python sweep position. Shaft twist is geometric; no stiffness or forces are inferred.';
+    $('arb-legend').innerHTML='<i class="arb"></i> U-bar ARB (solved)';
+  } else $('arb-legend').innerHTML='<i class="arb"></i> U-bar ARB (static)';
   let hasVisibleObstacle=false;
   for(const {key,label} of OBSTACLE_TYPES) {
     const obstacle=design.obstacles?.[key],visible=obstacle?.visible===true,ready=obstacleComplete(obstacle,key);
@@ -148,8 +181,8 @@ function update() {
   $('bump-value').textContent=`${bump} mm`;$('steer-value').textContent=`${rack} mm`;$('heave-position-value').textContent=`${heavePosition.toFixed(1)} mm`;
   if(invalidField) $('solver-results').innerHTML=`<p class="solver-status error">${escape(inputIssue)} The preview shows static geometry from the last accepted values.</p>`;
   else if(errors.length) $('solver-results').innerHTML=`<p class="solver-status error">${errors.map(escape).join('<br>')}</p>`;
-  else if(!result.ok) $('solver-results').innerHTML=`<p class="solver-status error">${escape(result.left?.reason||result.right?.reason||'No nearby assembly solution.')} Showing static geometry.</p>`;
-  else $('solver-results').innerHTML=`<div class="solver-metrics"><span>Left Δ camber <strong>${result.left.camber.toFixed(2)}°</strong></span><span>Left Δ toe-in <strong>${result.left.toe.toFixed(2)}°</strong></span><span>Right Δ toe-in <strong>${result.right.toe.toFixed(2)}°</strong></span><span>Left / right steer <strong>${result.left.steer.toFixed(2)}° / ${result.right.steer.toFixed(2)}°</strong></span><span>Left damper compression <strong>${result.left.compression.toFixed(2)} mm</strong></span></div><p class="solver-status">● Position solved · maximum constraint residual ${Math.max(result.left.error,result.right.error).toFixed(5)} mm</p>`;
+  else if(!result?.ok) $('solver-results').innerHTML=`<p class="solver-status error">${escape(result?.left?.reason||result?.right?.reason||(pythonPreview?'Run the Python sweep to inspect a calculated position.':'No nearby assembly solution.'))} Showing static geometry.</p>`;
+  else $('solver-results').innerHTML=`<div class="solver-metrics"><span>Left Δ camber <strong>${result.left.camber.toFixed(2)}°</strong></span><span>Left Δ toe-in <strong>${result.left.toe.toFixed(2)}°</strong></span><span>Right Δ toe-in <strong>${result.right.toe.toFixed(2)}°</strong></span><span>Left / right steer <strong>${result.left.steer.toFixed(2)}° / ${result.right.steer.toFixed(2)}°</strong></span><span>Left damper compression <strong>${(result.left.compression===null?'Unavailable':result.left.compression.toFixed(2))} mm</strong></span></div><p class="solver-status">● Position solved · maximum constraint residual ${Math.max(result.left.error,result.right.error).toFixed(5)} mm</p>`;
   renderHeaveStatus(errors,heaveCurrent,inputIssue);
   $('save').disabled=!storageReadable||errors.length>0||invalidField;$('export').disabled=errors.length>0||invalidField;
   if(!$('hardpoints-panel').hidden && !document.activeElement?.dataset.point) renderHardpoints();
@@ -160,7 +193,15 @@ function renderHardpoints() {
   $('hardpoint-rows').innerHTML=Object.entries(a.hardpoints).map(([key,xyz])=>`<tr><td>${hardpointLabel(key)}</td>${axlePointToFront(xyz,active,design.wheelbase).map((n,i)=>`<td><input type="number" step="any" min="${-10000-coordinateOffset(active,i)}" max="${10000-coordinateOffset(active,i)}" value="${escape(hardpointDrafts[active]?.[key]?.[i]??String(n))}" data-point="${key}" data-axis="${i}" aria-label="${hardpointLabel(key)} ${'XYZ'[i]}"></td>`).join('')}<td>${key==='actuation_outer'?ACTUATION_ATTACHMENTS[getActuationAttachment(a)]:isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
 }
 function reveal(panel) {
-  $(panel).hidden=false;
+  if(panel==='kinematics-panel') {
+    exploring=true;document.querySelector('main').classList.add('exploring-kinematics');
+    $('kinematics-panel').hidden=false;$('legacy-motion').open=false;
+    $('kinematics-preview-host').append(viewerPanel);
+    for(const id of ['configure-step','hardpoints-step'])$(id).classList.remove('current');
+    $('kinematics-step').classList.add('current');dashboard.open();update();
+    document.querySelector('.workflow').scrollIntoView({behavior:'smooth',block:'start'});return;
+  }
+  leaveDashboard();$(panel).hidden=false;
   if(panel==='hardpoints-panel') {
     document.querySelector('.workspace-grid').classList.add('editing-hardpoints');
     $('configure-step').classList.remove('current');$('hardpoints-step').classList.add('current');
@@ -261,6 +302,7 @@ $('discard-hardpoint-edits').addEventListener('click',()=>{
   delete hardpointDrafts[active];hardpointMessages[active]='Unaccepted edits discarded. Showing the last accepted coordinates.';renderHardpoints();update();
 });
 $('configure-step').addEventListener('click',()=>{
+  leaveDashboard();
   document.querySelector('.workspace-grid').classList.remove('editing-hardpoints');$('hardpoints-panel').hidden=true;$('hardpoint-rows').replaceChildren();
   $('configure-step').classList.add('current');$('hardpoints-step').classList.remove('current');update();
   document.querySelector('.workspace-grid').scrollIntoView({behavior:'smooth',block:'start'});
@@ -299,7 +341,7 @@ $('show-steering-axis').addEventListener('change',update);
 $('show-labels').addEventListener('change',()=>{viewer.labels=$('show-labels').checked;viewer.draw();});
 function load(d) {
   let imported;try{imported=importDesign(d);}catch(error){$('library-error').textContent=error.message;return;}
-  design=imported.design;hardpointDrafts={};hardpointMessages={};active='front';resetMotion();dirty=false;fields();update();$('save-state').textContent='Design loaded';$('library').close();toast(imported.migrated?`Converted ${design.name} to SAE J670 Z-down; save or export to keep v2.`:`Opened ${design.name}`);
+  design=imported.design;hardpointDrafts={};hardpointMessages={};active='front';dashboard.resetInputs();resetMotion();dirty=false;fields();update();$('save-state').textContent='Design loaded';$('library').close();toast(imported.migrated?`Converted ${design.name} to SAE J670 Z-down; save or export to keep v2.`:`Opened ${design.name}`);
 }
 function showLibrary() {
   $('library-error').textContent=libraryNotice;
