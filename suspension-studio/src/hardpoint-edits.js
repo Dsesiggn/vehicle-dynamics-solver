@@ -1,4 +1,4 @@
-import { clone, hardpointLabel, validateDesign } from './model.js?v=0.2.8';
+import { clone, hardpointLabel, validateDesign } from './model.js?v=0.2.12';
 import { frontPointToAxle } from './coordinate-frames.js?v=0.2.11';
 
 // Complete decimal values, with an optional complete exponent. In particular,

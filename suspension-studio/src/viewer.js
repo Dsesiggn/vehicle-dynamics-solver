@@ -1,10 +1,10 @@
 import { mirrorPoint, toDisplay } from './coordinates.js';
-import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.8';
-import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.8';
+import {linkPairs,isMoving,hardpointLabel} from './model.js?v=0.2.12';
+import {add,sub,scale,unit,cross,rotate} from './solver.js?v=0.2.12';
 import {arbPreviewGeometry} from './arb.js?v=0.2.7';
 import {OBSTACLE_TYPES,obstacleMesh} from './obstacles.js?v=0.2.5';
-import {memberSegmentId} from './interference.js?v=0.2.8';
-import {tireTreadGeometry} from './tire-geometry.js?v=0.2.8';
+import {memberSegmentId} from './interference.js?v=0.2.12';
+import {tireTreadGeometry} from './tire-geometry.js?v=0.2.12';
 import {axlePointToFront} from './coordinate-frames.js?v=0.2.11';
 
 /** Build display positions in the front-axle frame without altering local solver data. */

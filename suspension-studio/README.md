@@ -36,7 +36,7 @@ Saved libraries belong to the browser and web origin. The hosted app and a local
 
 1. Define a new topology or open a preset/saved design.
 2. Set vehicle dimensions, then independently configure the front and rear axles.
-3. Choose double wishbone, MacPherson, or five-link suspension. Pushrod and pullrod require a bell crank; direct actuation uses direct mounting. MacPherson requires a direct strut.
+3. Choose double wishbone, MacPherson, or five-link suspension. Pushrod and pullrod require a bell crank; direct actuation uses direct mounting. For each double-wishbone axle, choose whether the outer actuation pickup belongs to the upright, lower wishbone or upper wishbone. MacPherson requires a direct strut.
 4. Open **Define hardpoints** to edit the generated geometry. Changes to topology or actuation regenerate that axle, with confirmation for customized geometry.
 5. Open **Explore kinematics** to solve wheel bump and rack displacement. The preview shows the solved axle, or the static geometry with an explicit failure message when no solution is found.
 6. Enter compression/rebound magnitudes and the shared link OD in **Heave interference check**. The default travel is 25.4 mm in each direction; the shared OD is blank until entered. Run the full sweep, then use the travel slider or a listed event to inspect the solved pose and colliding members.
@@ -54,6 +54,16 @@ Saved v2 JSON and the suspension solver retain their existing axle-local represe
 Incomplete or invalid entries remain editable. A persistent message explains why they have not been applied, and the preview displays the last accepted static geometry. Saving, exporting and solving stay disabled while either axle has unaccepted edits. Correct the entries or use **Discard unaccepted edits** to restore the accepted coordinates. Pending edits are not saved in the design library.
 
 This is an input-validation and rendering change, not a new kinematic model. The existing symmetric-left-corner convention is unchanged: editing wheel-center Y sets track to `−2Y`, and editing rack-inner Y sets rack length to `−2Y`, in mm. Other coordinate edits preserve the existing widths. The editor evaluates all pending coordinate changes together against the existing design validation before replacing the accepted axle; blanks never become zero. See [the coordinate contract](docs/COORDINATES.md).
+
+## Outer actuation pickup attachment
+
+Each double-wishbone axle independently identifies the body carrying **Actuation outer**: **Upright**, **Lower wishbone** or **Upper wishbone**. This applies to pushrod, pullrod and direct-damper arrangements. Changing the attachment preserves every static XYZ hardpoint; it does not move the pickup onto a guessed arm centerline. Enter the actual pickup position, including any bracket offset, in the same front-origin coordinates as the other inputs.
+
+During a solve, an upright-mounted pickup follows the upright pose. A wishbone-mounted pickup follows that arm's rotation about its entered fore–aft inboard pivot line. The resulting endpoint is used before pushrod/pullrod rocker closure or direct-damper compression is calculated, and the preview and interference checker consume those same solved endpoints. The pickup therefore does not inherit upright steering rotation when it belongs to a wishbone. This does not mean that it is fixed for every rack input: the existing coupled constraints can move an arm while maintaining the prescribed wheel-center height.
+
+Five-link suspension currently supports upright attachment only; an off-axis pickup on an independent two-ended link needs additional orientation/joint information. MacPherson uses its existing strut endpoints and does not use this attachment setting. Saved v2 designs store the optional per-axle `actuationAttachment` value. Missing values preserve the earlier upright behavior, and generated layouts explicitly start with upright attachment; these defaults are compatibility/starting behavior, not inferred real-vehicle geometry.
+
+The rigid-body derivation, supplied-reference page comparisons, degeneracy checks, applicability limits and verification status are recorded in [ACTUATION-ATTACHMENT.md](docs/ACTUATION-ATTACHMENT.md). Attachment selection retains the existing front-origin editor adapter and axle-local storage/solver frame.
 
 ## Appearance
 
@@ -91,7 +101,7 @@ Unchecking an envelope retains its inputs. Blank fields represent unknown draft 
 
 ## Heave interference check
 
-Each new design starts with editable compression and rebound magnitudes of **25.4 mm**. Compression is upward wheel-center motion: `bump = +compression`, so `Z_solved = Z_static − compression`. Rebound is downward: `bump = −rebound`, so `Z_solved = Z_static + rebound`. The left and right wheels receive the same heave input, rack motion is zero for this check, and each axle is evaluated independently. The existing six-pose solver leaves chassis-side hardpoints anchored and moves the upright-side hardpoints while preserving each fixed link length; the bell-crank solve pivots its rocker about the declared X axis.
+Each new design starts with editable compression and rebound magnitudes of **25.4 mm**. Compression is upward wheel-center motion: `bump = +compression`, so `Z_solved = Z_static − compression`. Rebound is downward: `bump = −rebound`, so `Z_solved = Z_static + rebound`. The left and right wheels receive the same heave input, rack motion is zero for this check, and each axle is evaluated independently. The existing six-pose solver leaves chassis-side hardpoints anchored and moves the upright-side hardpoints while preserving each fixed link length. The outer actuation pickup follows its selected upright or wishbone attachment before the bell-crank solve pivots its rocker about the declared X axis or direct-damper length is evaluated.
 
 The shared link OD is an editable positive value and has no invented default. It is the maximum link OD supplied by the user, so applying it to every modeled link gives a conservative packaging envelope. Suspension arms, toe links, pushrods/pullrods, and the three displayed bell-crank arms use radius `r_link = linkOD/2`. Dampers use each axle's existing damper OD with `r_damper = damperOD/2`; this covers a direct damper, a bell-crank damper, or the MacPherson strut. The current rocker is drawn as three centerline arms; those use the shared link OD until plate geometry is defined. Members are approximated as capsules: straight centerlines with a circular section and rounded ends. This is a geometry approximation, not the measured solid or joint shape.
 
@@ -148,12 +158,12 @@ The application does not execute or reinterpret the legacy dashboard, tire scrip
 
 ## Kinematic formulation
 
-The upright has six pose unknowns: three translations and three rotation-vector components. Rodrigues' formula rotates rigidly attached hardpoints. Rotation parameters are scaled to a 300 mm characteristic length to improve conditioning.
+The upright has six pose unknowns: three translations and three rotation-vector components. Rodrigues' formula rotates points rigidly attached to that upright. A wishbone-mounted actuation pickup is transported separately with its selected arm, using the actual fore–aft pivot line and solved outer ball joint. Rotation parameters in the upright solve are scaled to a 300 mm characteristic length to improve conditioning.
 
 - Double wishbone: four fixed arm-length constraints plus tie-rod length and prescribed wheel-center Z.
 - Five-link: five independent fixed-length constraints plus prescribed wheel-center Z.
 - MacPherson: two lower-arm constraints, tie-rod length, two perpendicular constraints keeping the chassis strut top on the rotating upright strut axis, and prescribed wheel-center Z. The strut telescopes freely.
-- Bell crank: a separate scalar solve rotates a rocker around its longitudinal X axis while preserving pushrod/pullrod length. Damper compression is the change in eye-to-eye length; direct mount and strut compression use their corresponding eye distances.
+- Bell crank: after resolving the selected outer pickup attachment, a separate scalar solve rotates a rocker around its longitudinal X axis while preserving pushrod/pullrod length. Damper compression is the change in eye-to-eye length; a direct damper uses the transported pickup, while a MacPherson strut uses its existing strut endpoints.
 
 Newton iteration with numerical Jacobian, partial-pivot elimination, line search, and 4 mm continuation steps searches near the static assembly. A maximum constraint residual above 0.001 mm rejects the result. Heave travel controls accept magnitudes through 100 mm, the solver's stated bound; an impossible pose, singular linkage, or unreachable rocker is reported without inventing a result. The preview returns to static geometry on a failed solve.
 
@@ -169,4 +179,4 @@ The six supplied vehicle dynamics books are cataloged in [the reference library]
 
 ## Next development milestones
 
-Add absolute alignment and wheel orientation; replace the illustrative upright actuation attachment with selectable arm/upright mounting; support arbitrary rocker axes and multi-body joints; introduce full-vehicle assembly and validated travel sweeps; then connect tire, spring, damper, mass/inertia and load models through explicit module contracts.
+Add absolute alignment and wheel orientation; extend attachment support to explicitly oriented independent links; support arbitrary rocker axes and multi-body joints; introduce full-vehicle assembly and validated travel sweeps; then connect tire, spring, damper, mass/inertia and load models through explicit module contracts.

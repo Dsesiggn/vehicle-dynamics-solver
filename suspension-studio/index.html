@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#692f50"><title>Suspension Studio · Vehicle Dynamics</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
   <script src="./src/theme.js?v=0.2.1"></script>
-  <link rel="stylesheet" href="./src/styles.css?v=0.2.11">
+  <link rel="stylesheet" href="./src/styles.css?v=0.2.12">
 </head>
 <body>
   <section id="startup-panel" class="startup-panel" role="status" aria-live="polite" aria-labelledby="startup-title">
@@ -65,6 +65,8 @@
             </div>
             <div class="field-grid"><label class="field">Actuation method<select id="actuation"><option value="pushrod">Pushrod</option><option value="pullrod">Pullrod</option><option value="direct">Direct acting</option></select></label><label class="field">Damper mounting<select id="mounting"><option value="bell-crank">Bell crank</option><option value="direct">Direct mount</option></select></label></div>
             <p id="compatibility-note" class="hint"></p>
+            <label class="field">Outer actuation pickup attached to<select id="actuation-attachment" aria-describedby="attachment-note"></select></label>
+            <p id="attachment-note" class="hint"></p>
             <div class="subsection-heading">STEERING <label class="switch-label"><input id="steered" type="checkbox"> Steered axle</label></div>
             <div class="field-grid"><label class="field">Rack length<div class="number-wrap"><input id="rack-length" type="number" min="100" max="2500" step="any"><span>mm</span></div></label><label class="field">Total rack travel<div class="number-wrap"><input id="rack-travel" type="number" min="1" max="300" step="any"><span>mm</span></div></label></div>
             <div class="subsection-heading">SPRING & DAMPER</div><div class="field-grid"><label class="field">Spring outer diameter<div class="number-wrap"><input id="spring-od" type="number" min="20" max="250" step="any"><span>mm</span></div></label><label class="field">Damper outer diameter<div class="number-wrap"><input id="damper-od" type="number" min="10" max="200" step="any"><span>mm</span></div></label></div>
@@ -104,5 +106,5 @@
   <dialog id="library"><div class="dialog-heading"><div><span class="eyebrow">DESIGN LIBRARY</span><h2>Choose your starting point.</h2></div><button id="close-library" class="icon-button" aria-label="Close design library">×</button></div><p class="hint">Opening a design replaces the current draft. Save your changes first.</p><div id="presets"></div><h3 class="library-subtitle">Saved in this browser</h3><div id="saved-designs"></div><label class="button subtle import-label">↑ Import design JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label><p id="library-error" role="alert"></p></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   </div>
-  <script src="./src/startup.js?v=0.2.11"></script>
+  <script src="./src/startup.js?v=0.2.12"></script>
 </body></html>

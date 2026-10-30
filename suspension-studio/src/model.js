@@ -7,6 +7,15 @@ export const TOPOLOGIES = {
   macpherson: { name: 'MacPherson', solver: 'Strut constraint' },
   'multi-link': { name: 'Multi-link', solver: '5-link constraint' },
 };
+export const ACTUATION_ATTACHMENTS = Object.freeze({
+  upright: 'Upright',
+  'lower-wishbone': 'Lower wishbone',
+  'upper-wishbone': 'Upper wishbone',
+});
+// Missing optional fields retain the original upright-carried pickup behavior.
+// Supplied null/unknown values must survive this boundary so validation rejects
+// them instead of silently selecting an attachment for a real assembly.
+export const getActuationAttachment = a => Object.hasOwn(a, 'actuationAttachment') ? a.actuationAttachment : 'upright';
 export const clone = value => structuredClone(value);
 export const newHeaveTravel = () => ({ compression: 25.4, rebound: 25.4 });
 export const newInterferenceSettings = () => ({ linkOD: null });
@@ -20,7 +29,7 @@ export function hardpointLabel(key) {
     .replaceAll('_', ' ').replace(/^(lca|uca)\b/, arm => arm.toUpperCase()));
 }
 export function axle(topology = 'double-wishbone', track = 1200, steered = true) {
-  const a = { topology, track, tireTreadWidth: null, steered, actuation: topology === 'macpherson' ? 'direct' : 'pushrod', mounting: topology === 'macpherson' ? 'direct' : 'bell-crank', rackLength: 440, rackTravel: 60, springOD: 65, damperOD: 40, hardpoints: {} };
+  const a = { topology, track, tireTreadWidth: null, steered, actuation: topology === 'macpherson' ? 'direct' : 'pushrod', actuationAttachment: 'upright', mounting: topology === 'macpherson' ? 'direct' : 'bell-crank', rackLength: 440, rackTravel: 60, springOD: 65, damperOD: 40, hardpoints: {} };
   a.hardpoints = generatePoints(a, 460); return a;
 }
 export function newDesign() {
@@ -29,6 +38,7 @@ export function newDesign() {
 export function normalizeAxle(a) {
   if (a.topology === 'macpherson') a.actuation = 'direct';
   a.mounting = a.actuation === 'direct' ? 'direct' : 'bell-crank';
+  if (a.topology !== 'double-wishbone' && ['lower-wishbone','upper-wishbone'].includes(getActuationAttachment(a))) a.actuationAttachment = 'upright';
 }
 export function generatePoints(a, diameter) {
   const y = -a.track / 2, z = -diameter / 2;
@@ -96,6 +106,9 @@ export function validateDesign(d) {
     }
     if (typeof a.steered !== 'boolean') errors.push(`${key}: steering must be true or false.`);
     if (!['pushrod','pullrod','direct'].includes(a.actuation) || a.mounting !== (a.actuation === 'direct' ? 'direct' : 'bell-crank') || a.topology === 'macpherson' && a.actuation !== 'direct') errors.push(`${key}: incompatible actuation and mounting.`);
+    const attachment = getActuationAttachment(a);
+    if (typeof attachment !== 'string' || !Object.hasOwn(ACTUATION_ATTACHMENTS,attachment)) errors.push(`${key}: invalid actuation attachment; choose upright, lower-wishbone or upper-wishbone.`);
+    else if (a.topology !== 'double-wishbone' && attachment !== 'upright') errors.push(`${key}: wishbone actuation attachment requires double-wishbone topology.`);
     if (a.springOD <= a.damperOD) errors.push(`${key}: spring OD must be greater than damper OD.`);
     if (a.rackLength >= a.track) errors.push(`${key}: rack length must be less than track width.`);
     const required = generatePoints(a,d.wheelDiameter);

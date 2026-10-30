@@ -1,4 +1,4 @@
-import { TIRE_TREAD_WIDTH_MAX } from './model.js?v=0.2.8';
+import { TIRE_TREAD_WIDTH_MAX } from './model.js?v=0.2.12';
 
 const finiteVector = value => Array.isArray(value) && value.length === 3 && value.every(Number.isFinite);
 

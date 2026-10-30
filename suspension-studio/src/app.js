@@ -1,12 +1,12 @@
-import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.8';
-import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel,TIRE_TREAD_WIDTH_MAX} from './model.js?v=0.2.8';
-import {solveAxle} from './solver.js?v=0.2.8';
-import {SuspensionViewer} from './viewer.js?v=0.2.11';
-import {evaluateHardpointEdits} from './hardpoint-edits.js?v=0.2.11';
+import { importDesign, readLibrary, STORAGE } from './migration.js?v=0.2.12';
+import {newDesign,preset,clone,TOPOLOGIES,title,normalizeAxle,generatePoints,changeDimensions,validateDesign,isMoving,hardpointLabel,TIRE_TREAD_WIDTH_MAX,ACTUATION_ATTACHMENTS,getActuationAttachment} from './model.js?v=0.2.12';
+import {solveAxle} from './solver.js?v=0.2.12';
+import {SuspensionViewer} from './viewer.js?v=0.2.12';
+import {evaluateHardpointEdits} from './hardpoint-edits.js?v=0.2.12';
 import {axlePointToFront,frontPointToAxle} from './coordinate-frames.js?v=0.2.11';
 import {ARB_POINTS,newAntiRollBar,arbComplete,arbPreviewGeometry} from './arb.js?v=0.2.7';
 import {OBSTACLE_TYPES,newObstacles,obstacleComplete} from './obstacles.js?v=0.2.5';
-import {evaluateHeavePosition,scanHeaveTravel} from './interference.js?v=0.2.8';
+import {evaluateHeavePosition,scanHeaveTravel} from './interference.js?v=0.2.12';
 const $=id=>document.getElementById(id);
 let design=newDesign(),active='front',saved=[],rejected=[],libraryNotice='',storageReadable=true,bump=0,rack=0,heavePosition=0,heavePreviewActive=false,lastHeaveScan=null,toastTimer,dirty=false;
 let hardpointDrafts={},hardpointMessages={};
@@ -37,7 +37,11 @@ function fields() {
   for(const [id,key] of Object.entries({'track':'track','rack-length':'rackLength','rack-travel':'rackTravel','spring-od':'springOD','damper-od':'damperOD','actuation':'actuation','mounting':'mounting'})) $(id).value=typeof a[key]==='number'?Number(a[key].toFixed(3)):a[key];
   $('steered').checked=a.steered;$('rack-length').disabled=!a.steered;$('rack-travel').disabled=!a.steered;
   $('actuation').disabled=a.topology==='macpherson';$('mounting').disabled=a.topology==='macpherson';
-  $('compatibility-note').textContent=a.topology==='macpherson'?'MacPherson uses a direct-acting, telescopic strut.':a.actuation==='direct'?'Direct actuation connects the coilover to the upright.':'Pushrod and pullrod actuation use a bell crank to drive the coilover.';
+  const attachment=getActuationAttachment(a),attachmentChoices=a.topology==='double-wishbone'?Object.entries(ACTUATION_ATTACHMENTS):[['upright','Upright']];
+  $('actuation-attachment').innerHTML=attachmentChoices.map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
+  $('actuation-attachment').value=attachment;$('actuation-attachment').disabled=a.topology!=='double-wishbone';
+  $('attachment-note').textContent=a.topology==='macpherson'?'MacPherson uses its strut endpoints; there is no separate outer actuation pickup.':a.topology==='multi-link'?'Upright attachment is supported for multi-link. A link-mounted offset pickup needs additional joint and orientation data.':`Applies to the ${active} axle. Choose the member that physically carries the pickup; its entered XYZ coordinates are preserved. Older designs retain Upright until changed.`;
+  $('compatibility-note').textContent=a.topology==='macpherson'?'MacPherson uses a direct-acting, telescopic strut.':a.actuation==='direct'?'Direct actuation connects the coilover to the selected pickup attachment.':'Pushrod and pullrod actuation use a bell crank to drive the coilover.';
   document.querySelectorAll('[data-axle]').forEach(b=>b.setAttribute('aria-selected',b.dataset.axle===active));
   document.querySelectorAll('[data-topology]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.topology===a.topology));
   bump=Math.max(-design.heaveTravel.rebound,Math.min(design.heaveTravel.compression,bump));
@@ -105,7 +109,7 @@ function update() {
   $('interference-legend').hidden=!highlightSegments.size;
   $('run-heave-check').disabled=errors.length>0||invalidField||!Number.isFinite(linkOD)||linkOD<=0;
   $('fit-all').setAttribute('aria-pressed',String(viewer.fitMode));if(viewer.fitMode)document.querySelectorAll('[data-view]').forEach(button=>button.setAttribute('aria-pressed','false'));
-  $('viewer-axle').textContent=`${active.toUpperCase()} AXLE`;$('viewer-topology').textContent=TOPOLOGIES[a.topology].name;$('viewer-detail').textContent=invalidField?'Invalid input · Last accepted static geometry':`${title(a.actuation)} · ${title(a.mounting)}`;
+  $('viewer-axle').textContent=`${active.toUpperCase()} AXLE`;$('viewer-topology').textContent=TOPOLOGIES[a.topology].name;$('viewer-detail').textContent=invalidField?'Invalid input · Last accepted static geometry':`${title(a.actuation)} · ${title(a.mounting)}${a.topology==='macpherson'?'':` · Pickup: ${ACTUATION_ATTACHMENTS[getActuationAttachment(a)]}`}`;
   $('preview-input-status').hidden=!invalidField;
   $('preview-input-status').textContent=inputIssue?`${inputIssue} The preview retains the last accepted coordinates.`:'';
   $('hardpoint-status').classList.toggle('error',invalidField);
@@ -146,7 +150,8 @@ function update() {
 }
 function renderHardpoints() {
   $('hardpoint-axle').textContent=`/ ${title(active)} axle`;
-  $('hardpoint-rows').innerHTML=Object.entries(design.axles[active].hardpoints).map(([key,xyz])=>`<tr><td>${hardpointLabel(key)}</td>${axlePointToFront(xyz,active,design.wheelbase).map((n,i)=>`<td><input type="number" step="any" min="${-10000-coordinateOffset(active,i)}" max="${10000-coordinateOffset(active,i)}" value="${escape(hardpointDrafts[active]?.[key]?.[i]??String(n))}" data-point="${key}" data-axis="${i}" aria-label="${hardpointLabel(key)} ${'XYZ'[i]}"></td>`).join('')}<td>${isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
+  const a=design.axles[active];
+  $('hardpoint-rows').innerHTML=Object.entries(a.hardpoints).map(([key,xyz])=>`<tr><td>${hardpointLabel(key)}</td>${axlePointToFront(xyz,active,design.wheelbase).map((n,i)=>`<td><input type="number" step="any" min="${-10000-coordinateOffset(active,i)}" max="${10000-coordinateOffset(active,i)}" value="${escape(hardpointDrafts[active]?.[key]?.[i]??String(n))}" data-point="${key}" data-axis="${i}" aria-label="${hardpointLabel(key)} ${'XYZ'[i]}"></td>`).join('')}<td>${key==='actuation_outer'?ACTUATION_ATTACHMENTS[getActuationAttachment(a)]:isMoving(key)?'Upright':key.startsWith('rocker_')&&key!=='rocker_pivot'?'Rocker':'Chassis'}</td></tr>`).join('');
 }
 function reveal(panel) {
   $(panel).hidden=false;
@@ -157,13 +162,17 @@ function reveal(panel) {
     document.querySelector('.workspace-grid').scrollIntoView({behavior:'smooth',block:'start'});
   } else $(panel).scrollIntoView({behavior:'smooth',block:'start'});
 }
-function geometryChange(change) {
+function geometryChange(change,attachmentReset=false) {
   const a=design.axles[active], customized=JSON.stringify(a.hardpoints)!==JSON.stringify(generatePoints(a,design.wheelDiameter));
-  if((customized||hardpointDrafts[active])&&!confirm('Changing topology or actuation replaces this axle’s current hardpoints and unaccepted edits with generated geometry. Continue?')) {fields();return;}
+  if((customized||hardpointDrafts[active]||attachmentReset)&&!confirm(`Changing topology or actuation replaces this axle’s current hardpoints and unaccepted edits with generated geometry.${attachmentReset?' This topology does not support wishbone pickup attachment; the attachment will reset to Upright.':''} Continue?`)) {fields();return;}
   change(a);normalizeAxle(a);a.hardpoints=generatePoints(a,design.wheelDiameter);delete hardpointDrafts[active];delete hardpointMessages[active];resetMotion();markDirty();fields();update();
 }
 for(const button of document.querySelectorAll('[data-axle]'))button.addEventListener('click',()=>{active=button.dataset.axle;lastHeaveScan=null;resetMotion();fields();update();});
-for(const button of document.querySelectorAll('[data-topology]'))button.addEventListener('click',()=>{if(button.dataset.topology!==design.axles[active].topology)geometryChange(a=>a.topology=button.dataset.topology);});
+for(const button of document.querySelectorAll('[data-topology]'))button.addEventListener('click',()=>{if(button.dataset.topology!==design.axles[active].topology)geometryChange(a=>a.topology=button.dataset.topology,button.dataset.topology!=='double-wishbone'&&getActuationAttachment(design.axles[active])!=='upright');});
+$('actuation-attachment').addEventListener('change',()=>{
+  const a=design.axles[active];a.actuationAttachment=$('actuation-attachment').value;
+  resetMotion();markDirty();update();
+});
 $('actuation').addEventListener('change',()=>geometryChange(a=>a.actuation=$('actuation').value));
 $('mounting').addEventListener('change',()=>geometryChange(a=>{a.mounting=$('mounting').value;a.actuation=a.mounting==='direct'?'direct':a.actuation==='direct'?'pushrod':a.actuation;}));
 function validInput(input) {if(input.value.trim()===''||!input.checkValidity()){update();return false;}return true;}

@@ -1,5 +1,6 @@
 import { mirrorPoint, mirrorRotation, alignmentFromAxis } from './coordinates.js';
-import { linkPairs, isMoving } from './model.js?v=0.2.8';
+import { linkPairs, isMoving, getActuationAttachment } from './model.js?v=0.2.12';
+import { mapWishbonePickup } from './wishbone-attachment.js?v=0.2.12';
 export const add = (a,b) => a.map((v,i)=>v+b[i]);
 export const sub = (a,b) => a.map((v,i)=>v-b[i]);
 export const scale = (a,s) => a.map(v=>v*s);
@@ -52,7 +53,8 @@ function solvePose(a,bump,rack,seed) {
   }
   error=Math.max(...residual(q).map(Math.abs));
   if(error>1e-3 || q.some(v=>!Number.isFinite(v)) || norm(q.slice(3))>300*Math.PI/2) return {ok:false,error,reason:'No nearby assembly solution. Reduce travel or review hardpoints.'};
-  const points=Object.fromEntries(Object.entries(p).map(([k,v])=>[k,isMoving(k)?transform(v,q):[...v]]));
+  const uprightAttachment=getActuationAttachment(a)==='upright';
+  const points=Object.fromEntries(Object.entries(p).map(([k,v])=>[k,isMoving(k)&&(k!=='actuation_outer'||uprightAttachment)?transform(v,q):[...v]]));
   points.tie_rod_inner[1]+=rack;
   return {ok:true,error,q,points,rotation:q.slice(3).map(v=>v/300)};
 }
@@ -72,8 +74,19 @@ function actuation(a,pose) {
 /** Continuation from static pose keeps the Newton solve on a nearby assembly branch. */
 export function solveCorner(a,bump=0,rack=0) {
   if(!Number.isFinite(bump)||!Number.isFinite(rack)||Math.abs(bump)>100||Math.abs(rack)>a.rackTravel/2+1e-8)return {ok:false,reason:'Requested motion exceeds the supported travel limits.'};
+  const attachment=getActuationAttachment(a);
+  if(!['upright','lower-wishbone','upper-wishbone'].includes(attachment)||attachment!=='upright'&&a.topology!=='double-wishbone')
+    return {ok:false,reason:'Actuation attachment is unsupported for this suspension topology.'};
   let pose,seed=[0,0,0,0,0,0];const steps=Math.max(1,Math.ceil(Math.max(Math.abs(bump),Math.abs(rack))/4));
   for(let step=1;step<=steps;step++) {pose=solvePose(a,bump*step/steps,a.steered?rack*step/steps:0,seed);if(!pose.ok)return pose;seed=pose.q;}
+  if(attachment!=='upright') {
+    const prefix=attachment==='lower-wishbone'?'lca':'uca',p=a.hardpoints;
+    const transported=mapWishbonePickup({fore:p[`${prefix}_front`],aft:p[`${prefix}_rear`],ballStatic:p[`${prefix}_outer`],ballSolved:pose.points[`${prefix}_outer`],pickupStatic:p.actuation_outer});
+    if(!transported.ok)return {...pose,ok:false,reason:transported.reason};
+    pose.points.actuation_outer=transported.point;
+    pose.actuationAttachmentResidualMm=Math.max(transported.reconstructionErrorMm,transported.rigidityErrorMm);
+    pose.error=Math.max(pose.error,pose.actuationAttachmentResidualMm);
+  }
   const actuator=actuation(a,pose); if(!actuator.ok)return {...pose,ok:false,reason:actuator.reason};
   return {...pose,...alignmentFromAxis(rotate([0,-1,0],pose.rotation),-1),compression:actuator.compression};
 }
