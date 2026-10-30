@@ -1,0 +1,20 @@
+# One same-origin service: browser UI + the existing Python steering engine.
+# Connect the owner's GitHub account in Render so automatic deploys are enabled.
+services:
+  - type: web
+    name: vehicle-dynamics-studio
+    runtime: python
+    plan: free
+    repo: https://github.com/Dsesiggn/vehicle-dynamics-solver
+    branch: codex/hybrid-engineering-backend
+    autoDeployTrigger: checksPass
+    buildCommand: pip install --no-cache-dir -r backend/requirements.txt
+    startCommand: python run_hybrid.py --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.14.5
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#692f50"><title>Engineering workbench · Vehicle Dynamics</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23692f50'/%3E%3Cpath d='m8 10 12 22 12-22M14 10l6 11 6-11' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
+  <script src="./src/theme.js?v=0.2.1"></script>
+  <link rel="stylesheet" href="./src/styles.css?v=0.2.9">
+  <link rel="stylesheet" href="./src/engineering.css">
+  <script src="./vendor/plotly/plotly.min.js" defer></script>
+</head>
+<body class="engineering-page">
+  <aside class="sidebar">
+    <a class="brand" href="./index.html" aria-label="Vehicle Dynamics home"><span class="brand-mark">V<span>∕</span></span><span>VEHICLE<br><b>DYNAMICS</b></span></a>
+    <div class="workspace-label">DESIGN WORKSPACE</div>
+    <nav aria-label="Workspace">
+      <a href="./index.html" class="nav-link"><span>◇</span> Suspension design <span class="nav-arrow">↗</span></a>
+      <a href="./steering.html" class="nav-link"><span>⌁</span> Steering geometry <span class="nav-arrow">↗</span></a>
+      <a href="./engineering.html" class="nav-link active" aria-current="page"><span>▥</span> Engineering workbench</a>
+    </nav>
+    <div class="sidebar-bottom"><span class="version-dot"></span> Engineering / 1.0 <span class="small">Nominal rolling geometry</span><a href="./docs/STEERING.md" target="_blank">Method & references ↗</a></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><div>Workspace <span>/</span> <strong>Engineering workbench</strong></div><div class="top-actions"><span id="engine-state" class="engine-state" role="status">Checking calculation engine…</span><button class="button theme-toggle" id="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Dark mode"><span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-thumb"></span></span><span>Dark mode</span></button></div></header>
+    <main>
+      <nav class="engineering-mobile-nav" aria-label="Other tools"><a href="./index.html">← Suspension design</a><a href="./steering.html">Steering geometry ↗</a></nav>
+      <div class="page-heading"><div><div class="eyebrow">IDEAL ACKERMANN BENCHMARK</div><h1>The geometry of a turn<span>.</span></h1><p>Explore the nominal relationship between inside and outside wheel angles.</p></div><span class="stage-badge"><span></span> ZERO-SLIP REFERENCE</span></div>
+      <p class="engineering-intro">A shared calculation engine supplies the numbers, chart and schematic. Start with your dimensions, or load the labeled reference example.</p>
+      <div id="workbench-notice" class="workbench-notice" role="status">Loading workbench…</div>
+      <noscript><p class="workbench-notice error">Enable JavaScript and open this page through the Python application server.</p></noscript>
+      <div class="engineering-grid">
+        <div class="engineering-inputs">
+          <section class="panel engineering-panel" aria-labelledby="inputs-heading">
+            <div class="section-title"><h2 id="inputs-heading"><span>01</span> Reference geometry</h2><span class="unit-badge">mm / deg</span></div>
+            <form id="benchmark-form" novalidate>
+              <label class="field" for="wheelbase">Wheelbase <span class="input-unit">mm</span><input id="wheelbase" name="wheelbase" type="number" min="0" max="10000000" step="any" inputmode="decimal" placeholder="Unknown" required><small>Nominal front to rear axle distance</small></label>
+              <label class="field" for="front-track">Front track <span class="input-unit">mm</span><input id="front-track" name="front-track" type="number" min="0" max="10000000" step="any" inputmode="decimal" placeholder="Unknown" required><small>Nominal front wheel-center separation</small></label>
+              <label class="field" for="inside-limit">Inside-angle sweep limit <span class="input-unit">deg</span><input id="inside-limit" name="inside-limit" type="number" min="0" max="88.999999" step="any" inputmode="decimal" placeholder="Unknown" required><small>Both turn directions · greater than 0°, below 89°</small></label>
+              <p class="hint" id="input-origin">No vehicle dimensions are assumed.</p>
+              <button class="button primary engineering-run" id="calculate" type="submit" disabled>Calculate reference <span>→</span></button>
+            </form>
+            <button class="button subtle engineering-example" id="load-reference" type="button" disabled>Load reference example</button>
+            <p class="hint engineering-example-note">Example: 1600 mm wheelbase, 1200 mm front track and ±30° inside angle. A numerical reference, not a recommended vehicle setup.</p>
+          </section>
+          <section class="panel engineering-panel engineering-method" aria-labelledby="method-heading">
+            <div class="section-title"><h2 id="method-heading"><span>02</span> What this means</h2></div>
+            <p>In a planar turn with zero lateral tire slip, wheel-normal lines meet at a common center on the unsteered rear axle extension.</p>
+            <div class="engineering-equation">cot(δ<sub>outside</sub>) − cot(δ<sub>inside</sub>) = T / L</div>
+            <p>The relation above uses positive angle magnitudes, wheelbase <i>L</i>, and front track <i>T</i>. The workbench displays signed headings: positive is rightward; negative is leftward.</p>
+            <p>This benchmark excludes real steering-linkage geometry, suspension travel, compliance, tire slip and tire forces. Software checks do not establish physical validation for a vehicle.</p>
+            <a href="./docs/STEERING.md" target="_blank">Read the derivation and reference evidence ↗</a>
+          </section>
+        </div>
+        <div class="engineering-results">
+          <section class="panel engineering-panel" aria-labelledby="preview-heading">
+            <div class="section-title"><div><h2 id="preview-heading">A turn, in perspective</h2><p class="hint">Nominal front wheels and rear-axle reference · millimeters</p></div><button id="reset-view" class="button subtle" type="button" disabled>Reset view</button></div>
+            <div class="engineering-scene" id="geometry-scene" role="img" aria-label="Three-dimensional nominal Ackermann wheel-heading schematic"><div class="engineering-empty" id="scene-empty"><strong>Your geometry starts here.</strong><span>Calculate a reference to inspect the front wheel headings.</span></div></div>
+            <p class="hint engineering-scene-note" id="scene-note">Drag to orbit; scroll to zoom. Wheel glyph dimensions are symbolic. Rear track and tire dimensions are not inferred.</p>
+            <div class="engineering-scrubber"><div><label for="sample-slider">Signed inside-wheel angle</label><output id="selected-angle">—</output></div><input id="sample-slider" type="range" min="0" max="0" value="0" step="1" disabled><div class="engineering-range"><span id="negative-limit">Left turn</span><button id="center-sample" type="button" disabled>Straight ahead · 0°</button><span id="positive-limit">Right turn</span></div></div>
+          </section>
+          <section class="panel engineering-panel" aria-labelledby="readouts-heading">
+            <div class="section-title"><h2 id="readouts-heading">At this angle</h2><span id="turn-direction" class="unit-badge">Awaiting calculation</span></div>
+            <div class="engineering-readouts"><div><span>Inside angle</span><strong id="inside-value">—</strong></div><div><span>Outside angle</span><strong id="outside-value">—</strong></div><div><span>Left heading</span><strong id="left-value">—</strong></div><div><span>Right heading</span><strong id="right-value">—</strong></div></div>
+            <p class="hint">Signed angles in degrees. At straight ahead both headings are zero; the inside/outside distinction disappears.</p>
+          </section>
+          <section class="panel engineering-panel engineering-chart-panel" aria-labelledby="chart-heading">
+            <div class="section-title"><div><h2 id="chart-heading">Inside versus outside</h2><p class="hint" id="sweep-summary">No calculated sweep</p></div><span class="unit-badge">deg</span></div>
+            <div id="ackermann-chart" class="engineering-chart" role="img" aria-label="Signed outside angle plotted against signed inside angle"><div class="engineering-empty"><span>The chart appears after a successful calculation.</span></div></div>
+          </section>
+        </div>
+      </div>
+      <footer><span><span class="version-dot"></span> Model: ideal_ackermann_v1 · SAE Z-down</span><span>Calculation inputs go to this application's server.</span></footer>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const notice = document.getElementById('workbench-notice');
+      if (location.protocol === 'file:') { notice.textContent = 'Open this workbench through the Python application server. A file address cannot connect to the calculation engine.'; notice.classList.add('error'); return; }
+      import('./src/engineering.js').catch(error => { notice.textContent = 'The workbench could not start: ' + error.message; notice.classList.add('error'); });
+    })();
+  </script>
+</body>
+</html>

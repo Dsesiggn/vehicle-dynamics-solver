@@ -1,4 +1,4 @@
-import { clone, validateDesign, hardpointLabel, newHeaveTravel, newInterferenceSettings } from './model.js?v=0.2.8';
+import { clone, validateDesign, hardpointLabel, newHeaveTravel, newInterferenceSettings } from './model.js?v=0.2.12';
 import { COORDINATE_SYSTEM, HARDPOINT_FRAME, LENGTH_UNIT, legacyToSAE } from './coordinates.js';
 
 /** Pure, non-mutating import boundary. Never infer axes from coordinate signs. */
@@ -9,6 +9,7 @@ export function importDesign(value) {
       throw Error('Ambiguous version 1 coordinate metadata. Import an original Studio v1 file or a complete v2 file.');
     }
     if (Object.hasOwn(design, 'obstacles')) throw Error('Version 1 files do not support obstacle geometry. Import the original suspension, then add packaging envelopes in SAE coordinates.');
+    if (Object.hasOwn(design, 'kinematics')) throw Error('Version 1 files do not define the coordinate meaning of kinematics settings. Import the original geometry and enter the new analysis inputs.');
     for (const a of Object.values(design.axles || {})) {
       if (a && Object.hasOwn(a, 'antiRollBar')) throw Error('Version 1 files do not support ARB points. Import the original suspension, then enter ARB points in SAE coordinates.');
       if (!a?.hardpoints || typeof a.hardpoints !== 'object') throw Error('Version 1 design has missing hardpoints.');
@@ -28,6 +29,9 @@ export function importDesign(value) {
   if (design?.axles && typeof design.axles === 'object') {
     for (const a of Object.values(design.axles)) {
       if (a && typeof a === 'object' && !Array.isArray(a) && !Object.hasOwn(a,'tireTreadWidth')) a.tireTreadWidth = null;
+      // Explicit compatibility behavior, not an inferred physical attachment.
+      // Existing static coordinates are retained exactly.
+      if (a && typeof a === 'object' && !Array.isArray(a) && !Object.hasOwn(a,'actuationAttachment')) a.actuationAttachment = 'upright';
     }
   }
   const errors = validateDesign(design);

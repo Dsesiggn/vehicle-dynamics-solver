@@ -7,11 +7,11 @@ Cataloging a book does not mean every chapter has been reviewed or that the curr
 | ID | Supplied reference | Intended use | Review status for this change |
 | --- | --- | --- | --- |
 | SEWARD | Derek Seward, *Race Car Design*, 2014. Supplied scan identifies Palgrave as first publisher. | Suspension architecture, springs/dampers/anti-roll bars, steering, design workflow. | Publication page and contents inspected. Chapter 4 §4.4.1 and Figure 4.11 visually inspected for U-bar components (see notes below); no stiffness equations adopted. |
-| MILLIKEN | William F. Milliken & Douglas L. Milliken, *Race Car Vehicle Dynamics*. Publication page visually verified: copyright 1995, SAE, ISBN 1-56091-526-9, fifth printing; date of this printing not shown. Filename 1997 is not used as an edition statement. | Suspension kinematics, handling, load transfer, tire/vehicle axis interfaces. | Chapter 4 Sections 4.1–4.3 text reviewed, printed pp. 114–120 / PDF pp. 76–79, for axes, origins, steer and force conventions. |
-| SMITH | Carroll Smith, *Tune to Win*, Aero Publishers, 1978. | Setup interpretation, tuning, practical cross-checks and test planning. | Title/publication pages inspected; Chapter 6 printed pp. 67–68 visually inspected for anti-roll-bar mounts and links (see notes below). |
+| MILLIKEN | William F. Milliken & Douglas L. Milliken, *Race Car Vehicle Dynamics*. Publication page visually verified: copyright 1995, SAE, ISBN 1-56091-526-9, fifth printing; date of this printing not shown. Filename 1997 is not used as an edition statement. | Suspension kinematics, handling, load transfer, tire/vehicle axis interfaces. | Chapter 4 Sections 4.1–4.3 text reviewed, printed pp.114–120 / PDF pp.76–79, for coordinate conventions. For actuation attachment, Chapter 17 §17.1 printed pp.608–609 / PDF p.324 and §17.5 printed pp.630–631 / PDF p.335 were newly visually inspected; Chapter 19 §19.1 printed pp.709–711 / PDF pp.374–375 was also checked. |
+| SMITH | Carroll Smith, *Tune to Win*, Aero Publishers, 1978. | Setup interpretation, tuning, practical cross-checks and test planning. | Title/publication pages inspected; Chapter 6 printed pp.67–68 visually inspected for anti-roll-bar mounts and links. For actuation attachment, printed pp.65–66 / PDF pp.64–65, Figs.34–36, were newly visually inspected. |
 | GILLESPIE | Thomas D. Gillespie, *Fundamentals of Vehicle Dynamics*, Society of Automotive Engineers, Inc. Author, title and publisher visually verified on supplied PDF p.1. Edition/publication year remain unverified: PDF p.2 proceeds directly to the symbols on printed p.vii; no copyright/publication page was found in the opening material. | Vehicle reference frames, equations of motion, ride, handling, braking, loads and steering. | Chapter 1, printed pp.8–10 / PDF pp.24–26, previously read; axis diagram and force/rotation page visually inspected. Focused steering follow-up visually inspected Chapter 6 printed pp.196–198 / PDF pp.212–214 and Chapter 8 printed pp.276–280 / PDF pp.292–296; comparison and limits below. This is not a whole-book review. |
 | PACEJKA | Hans B. Pacejka, *Tyre and Vehicle Dynamics*. Edition pending verification in supplied copy. | Tire slip, force/moment, combined-slip and transient models, with explicit dataset sign adapters. | Title page visually inspected. Extracted body text has a broken character mapping; equations must be visually read or OCR-checked before implementation. No tire model added in this change. |
-| HAYNES-SUSPENSION | *Competition Car Suspension*, Haynes (as identified by supplied filename). Author/edition pending verification; available scan begins with contents/chapter material. | Suspension layout, spring/damper installation, packaging and practical geometry checks. | Opening chapter pages visually inspected (PDF pp. 3–4, printed pp. 13–14). Image-only scan; cataloged for later focused reading. |
+| HAYNES-SUSPENSION | Allan Staniforth, *Competition Car Suspension*, Haynes, third edition, 1999; author and edition verified in the supplied source during the actuation review. | Suspension layout, spring/damper installation, packaging and practical geometry checks. | Opening chapter pages visually inspected (PDF pp.3–4, printed pp.13–14). For actuation attachment, Chapter 3 printed pp.78–80 / PDF pp.68–70 was newly visually inspected; p.80 distinguishes upright lugs from brackets on top/bottom wishbones. |
 
 ## Steering reference review
 
@@ -48,6 +48,18 @@ Two further source-definition issues remain explicit. **Gillespie radius ambigui
 
 This comparison provides source and geometric consistency within the stated model. It supplies no measured-vehicle validation. Real-vehicle validation still requires surveyed hardpoints, rack travel/gain and measured left/right steer sweeps at the specified ride position, with their measurement uncertainties.
 
+## Suspension steering-axis preview audit
+
+The [steering-axis preview method](STEERING-AXIS-PREVIEW.md) distinguishes the geometric steering pivots, the physical MacPherson strut shaft, and the wheel's complete solved rotation. Complete relevant pages were visually inspected on 2026-10-29:
+
+- **MILLIKEN**, Chapter 17 §17.5, printed pp.632–635 / PDF pp.336–337, especially printed p.633 and Fig.17.22: the upper strut mount lies on the MacPherson steering axis while the strut shaft need not coincide with that axis. Chapter 19 §19.1, printed pp.709–711 / PDF pp.374–375, identifies the double-wishbone upper/lower ball-joint steering axis and inclined-axis wheel effects.
+- **SEWARD**, Chapter 6 §§6.2.1–6.2.2, printed pp.156–157 / PDF pp.167–168, Figs.6.2–6.3: front- and side-view steering-axis definitions pass through the upper/lower outer ball joints; inclined steering can change camber and wheel height.
+- **HAYNES-SUSPENSION / STANIFORTH**, “King Pin Inclination” and “Caster Angle,” printed pp.107–108 / PDF pp.97–98: separated modern upright pivots replace the historical kingpin, with their connecting line defining the axis. “MacPherson Strut,” printed p.66 / PDF p.56, describes the sliding architecture without asserting that its shaft and steering axes coincide.
+- **GILLESPIE**, Chapter 7, printed pp.243–244 / PDF pp.259–260: telescopic-strut architecture combines an upper chassis mount with lower links. This is compatible with the top-mount/lower-ball definition but does not independently establish shaft/steering-axis equivalence.
+- **SMITH**, Chapter 4, printed pp.41–42 / PDF pp.40–41: strut packaging and compliance discussion supplies no opposing precise axis definition in the reviewed passage. It is not used as proof of an axis equation.
+
+Seward, Staniforth and Milliken agree on the double-wishbone pivot line; Milliken provides the precise MacPherson distinction. No governing contradiction was found in these passages. This focused review does not imply an exhaustive review of any book. Pacejka is not used for this rigid-geometry display; no tire-force model or sourced scalar angle formula is introduced. The project derives the finite rotation and connecting segment from its existing SAE XYZ inputs, so no new source-to-project scalar sign conversion is required. The existing preview already uses the solved Rodrigues rotation and spindle direction rather than a vehicle-Z yaw substitution. The new checkbox displays the current finite joint-to-joint segment, with undefined/degenerate geometry omitted, and leaves the mathematical suspension solve unchanged. A five-link virtual steering axis is outside this two-pivot reference construction. Numerical, browser and physical-validation status are recorded separately in the method document.
+
 ## Using this library for a new module
 
 1. Identify the governing model and read the relevant passages in the supplied references. Record source ID, edition if verified, chapter/section, printed page, and PDF page; distinguish an original derivation from a sourced equation. Continue checking the other relevant supplied sources after finding a suitable method. Record which passages were actually inspected and which resources or sections were not applicable, unavailable or not yet checked; do not imply an exhaustive review.
@@ -72,6 +84,20 @@ The preview now accepts a known bar bend, lever-arm tip, and suspension pickup w
 
 Verification covers nullable input persistence, malformed-data rejection, compatibility with existing imports, front/rear independence, unchanged suspension solutions when ARB inputs change, missing-bearing/partial preview behavior, and independently checked Euclidean segment lengths and reflection invariants. Synthetic test coordinates are not recommended vehicle geometry.
 
+## Outer actuation attachment
+
+The per-axle attachment choice and original finite-rotation derivation are recorded in [ACTUATION-ATTACHMENT.md](ACTUATION-ATTACHMENT.md). The focused comparison newly inspected these complete relevant pages on 2026-10-29:
+
+- **SEWARD**, Chapter 4 §4.1, printed pp.90–91 / PDF pp.101–102, Fig.4.2: external spring/damper, pullrod/top-wishbone and upper rocker-arm layouts.
+- **HAYNES-SUSPENSION / STANIFORTH**, Chapter 3, printed pp.78–80 / PDF pp.68–70, especially p.80: direct and rod-actuated arrangements can attach to the axle/upright or to wishbone brackets. Printed p.13 / PDF p.3 distinguishes upright and lower-wishbone direct mounts.
+- **MILLIKEN**, Chapter 17 §17.1 printed pp.608–609 / PDF p.324, Figs.17.1–17.2: suspension motion paths and the A-arm's two-link/ball-joint representation; §17.5 printed pp.630–631 / PDF p.335, Fig.17.20: actual inner-pivot axes. Chapter 19 §19.1 printed pp.709–711 / PDF pp.374–375 distinguishes the ball-joint steering axis and steering-induced wheel geometry effects.
+- **SMITH**, Chapter 6 printed pp.65–66 / PDF pp.64–65, Figs.34–36: lower spring attachment to a lower wishbone or hub carrier, and an upper-wishbone rocker alternative.
+- **GILLESPIE**, Chapter 8 printed pp.279–280 / PDF pp.295–296, Fig.8.4: arm-end pivot arcs and the distinct knuckle/steering-arm-ball trajectory; motion-derived centers must not be replaced by anti-dive force-analysis virtual centers.
+
+These sources agree that the attachment body depends on the actual mechanism. Their different mount examples are different topologies, not conflicting instructions to put every pickup on one particular body. The app therefore asks for upright, lower-wishbone or upper-wishbone ownership where that body is defined. A rocker wishbone carrying a spring directly remains distinct from the app's separate bell crank; an independent two-ended link requires more orientation information for an off-axis pickup. No inspected passage supplies the exact signed-angle/Rodrigues transport algorithm: that is the documented project derivation from rigid rotation about two fixed pivots.
+
+The references do not identify the user's attachment, establish the rigidity of its brackets/bushings, or validate its actuator travel. No reviewed passage contradicts the chosen rigid-wishbone transport within its stated assumptions. Applicability to compliant or differently jointed mechanisms remains unverified. Verification status is recorded separately in the method document; this source review alone is not a software-test or measured-vehicle validation claim.
+
 ## Heave interference geometry
 
 The capsule/convex-solid distance checks are not attributed to a supplied vehicle-dynamics book: they apply Euclidean computational geometry to the existing suspension solver's solved hardpoint positions. No force, tire, compliance, spring-rate, damper-rate, or measured-vehicle model is introduced. The assumptions and formulas are recorded in [INTERFERENCE.md](INTERFERENCE.md). Regression tests are software checks against analytic synthetic distances and do not validate clearances on a real vehicle or CAD assembly.
@@ -83,3 +109,25 @@ The optional tire tread-width preview uses original Euclidean circle/band geomet
 ## Local source lookup
 
 The supplied PDFs are in the user's `CR.FSAE/Literature` directory. Match by the book titles above. Do not copy that directory into the app or include it in an upload. On another machine, request the needed source if it is unavailable rather than claiming it was checked.
+
+## Python suspension dashboard source audit
+
+The actual passages inspected, definitions compared, unresolved applicability
+limits and original derivations for this module are recorded in:
+
+- [KINEMATICS-REFERENCE-REVIEW.md](KINEMATICS-REFERENCE-REVIEW.md): Milliken,
+  Gillespie, Seward, Smith, Staniforth and Pacejka review scope; motion-ratio
+  conventions, spatial instantaneous motion and geometric versus force centers.
+- [KINEMATICS-SOLVER.md](KINEMATICS-SOLVER.md): finite rigid-pose constraints,
+  analytic Jacobian, continuation and attachment/rocker transport.
+- [KINEMATICS-ANTI-EFFECTS.md](KINEMATICS-ANTI-EFFECTS.md): full-page comparison
+  of Milliken Ch17, Seward Ch3 and Gillespie Ch7, and original spatial virtual work.
+- [KINEMATICS-ARB.md](KINEMATICS-ARB.md): declared straight transverse geometry,
+  carrier selection, constant drop-link closure and exact derivative.
+- [KINEMATICS-CHANNELS.md](KINEMATICS-CHANNELS.md): inspected official manual
+  pages, different toe/MR/Ackermann definitions and implemented family coverage.
+
+The earlier ARB paragraphs describe static preview only. The optional dynamic
+model requires explicit selection and inputs; it does not infer the carrier or
+bearing geometry from a three-point drawing. Source review is separate from
+numerical tests and does not establish measured CR26 accuracy.

@@ -13,7 +13,9 @@ rebound endpoint:     bump = -r      Z_wheel = Z_static + r
 
 Both magnitudes default to 25.4 mm and can be edited independently up to the current solver limit of 100 mm. The travel slider selects a wheel-center bump directly. At each selected value, the same kinematic solver is run, then clearances are evaluated from that solved pose; the slider result is not interpolated from scan samples.
 
-The solver treats the axle inboard hardpoints as chassis-fixed. Upright-side points move with the solved rigid upright. Fixed links maintain their input lengths, and the existing rocker solve pivots its rocker around its X axis before damper and actuator-link endpoints are checked. This uses the model's kinematic constraints; it does not model bushing motion, flex, loads, or chassis motion.
+The solver treats the axle inboard hardpoints as chassis-fixed. Upright-side points move with the solved rigid upright. For double wishbones, `actuation_outer` follows its per-axle `actuationAttachment`: upright, lower wishbone or upper wishbone. A wishbone-mounted pickup rotates with that rigid arm about its actual fore–aft inboard pivot line, retaining its entered bracket offset. This transport occurs before the existing rocker solve or direct-damper calculation, so the checked actuator and damper segments use the same endpoints shown in the preview. Missing attachment metadata preserves legacy upright behavior; multi-link supports upright only, and MacPherson uses its existing strut endpoints. See [ACTUATION-ATTACHMENT.md](ACTUATION-ATTACHMENT.md).
+
+Fixed links maintain their input lengths, and the existing rocker solve pivots its rocker around its X axis before damper and actuator-link endpoints are checked. These are the model's kinematic constraints; they do not model bushing motion, flex, loads, joint articulation limits, or chassis motion. Attachment choice does not add bracket solids or a new member to the collision model. Static hardpoints and the axle-local clearance frame remain unchanged.
 
 ## Members and shapes
 
